@@ -105,18 +105,30 @@ async function main() {
     "✅ Created memberships (including cross-tenant access for Alice)"
   );
 
-  // Create Sample Incidents for Tenant 1
+  // Create DISTINCT Sample Incidents for Acme Corp (Tenant 1)
+  // Theme: E-commerce platform issues
+  const acmeIncidents = [
+    { title: "Shopping Cart Checkout Failure", severity: "SEV1", status: "OPEN", service: "Payment Gateway", environment: "PROD", tags: ["checkout", "payment", "critical"] },
+    { title: "Order Processing Delay in Production", severity: "SEV2", status: "MITIGATED", service: "Order Service", environment: "PROD", tags: ["orders", "latency"] },
+    { title: "Payment API Timeout During Peak Hours", severity: "SEV1", status: "OPEN", service: "Payment Gateway", environment: "PROD", tags: ["payment", "timeout"] },
+    { title: "Email Notifications Not Sending", severity: "SEV3", status: "RESOLVED", service: "Email Service", environment: "PROD", tags: ["email", "notifications"] },
+    { title: "Product Search Returns Empty Results", severity: "SEV2", status: "OPEN", service: "Search API", environment: "PROD", tags: ["search", "database"] },
+    { title: "Analytics Dashboard Loading Slowly", severity: "SEV4", status: "OPEN", service: "Analytics", environment: "STAGING", tags: ["performance", "analytics"] },
+    { title: "Inventory Sync Failing for Store Locations", severity: "SEV2", status: "MITIGATED", service: "Inventory Service", environment: "PROD", tags: ["inventory", "sync"] },
+    { title: "Coupon Code Validation Errors", severity: "SEV3", status: "RESOLVED", service: "Promotion Engine", environment: "PROD", tags: ["coupons", "discounts"] },
+  ];
+
   const incidents1 = await Promise.all(
-    Array.from({ length: 20 }, (_, i) =>
+    acmeIncidents.map((inc, i) =>
       prisma.incident.create({
         data: {
           tenantId: tenant1.id,
-          title: `Database Connection Timeout - Instance ${i + 1}`,
-          severity: ["SEV1", "SEV2", "SEV3", "SEV4"][i % 4],
-          status: ["OPEN", "MITIGATED", "RESOLVED"][i % 3],
-          service: ["API", "Database", "Cache", "Auth"][i % 4],
-          environment: ["PROD", "STAGING", "DEV"][i % 3],
-          tags: ["database", "timeout", `incident-${i + 1}`],
+          title: inc.title,
+          severity: inc.severity,
+          status: inc.status,
+          service: inc.service,
+          environment: inc.environment,
+          tags: inc.tags,
           createdById: user1.id,
           assigneeId: i % 2 === 0 ? user2.id : null,
         },
@@ -124,18 +136,30 @@ async function main() {
     )
   );
 
-  // Create Sample Incidents for Tenant 2
+  // Create DISTINCT Sample Incidents for TechStart Inc (Tenant 2)
+  // Theme: SaaS platform and infrastructure issues
+  const techstartIncidents = [
+    { title: "Cloud Storage Upload Failures", severity: "SEV1", status: "OPEN", service: "Storage API", environment: "PROD", tags: ["storage", "uploads", "critical"] },
+    { title: "Authentication Service Intermittent Errors", severity: "SEV2", status: "OPEN", service: "Auth Service", environment: "PROD", tags: ["auth", "login"] },
+    { title: "Mobile App API Rate Limiting", severity: "SEV3", status: "MITIGATED", service: "Mobile API", environment: "PROD", tags: ["mobile", "rate-limit"] },
+    { title: "Database Migration Failed on Staging", severity: "SEV2", status: "RESOLVED", service: "Database", environment: "STAGING", tags: ["database", "migration"] },
+    { title: "Deployment Pipeline Stuck in DEV", severity: "SEV4", status: "OPEN", service: "CI/CD", environment: "DEV", tags: ["deployment", "pipeline"] },
+    { title: "WebSocket Connections Dropping", severity: "SEV2", status: "OPEN", service: "Realtime Service", environment: "PROD", tags: ["websocket", "realtime"] },
+    { title: "Push Notifications Delayed by 5 Minutes", severity: "SEV3", status: "MITIGATED", service: "Notification Hub", environment: "PROD", tags: ["notifications", "latency"] },
+    { title: "Test Suite Failing After Latest Deploy", severity: "SEV4", status: "RESOLVED", service: "Testing", environment: "STAGING", tags: ["tests", "ci"] },
+  ];
+
   await Promise.all(
-    Array.from({ length: 20 }, (_, i) =>
+    techstartIncidents.map((inc, i) =>
       prisma.incident.create({
         data: {
           tenantId: tenant2.id,
-          title: `API Rate Limiting Exceeded - Request ${i + 1}`,
-          severity: ["SEV1", "SEV2", "SEV3", "SEV4"][i % 4],
-          status: ["OPEN", "MITIGATED", "RESOLVED"][i % 3],
-          service: ["API", "Payment", "Queue", "Email"][i % 4],
-          environment: ["PROD", "STAGING", "DEV"][i % 3],
-          tags: ["rate-limit", "api", `request-${i + 1}`],
+          title: inc.title,
+          severity: inc.severity,
+          status: inc.status,
+          service: inc.service,
+          environment: inc.environment,
+          tags: inc.tags,
           createdById: user3.id,
           assigneeId: i % 3 === 0 ? user3.id : null,
         },
@@ -144,7 +168,7 @@ async function main() {
   );
 
   console.log(
-    `✅ Created 40 incidents (20 per tenant) for Tenant 1 and Tenant 2`
+    `✅ Created distinct incidents:\n   - Acme Corp: ${acmeIncidents.length} e-commerce incidents\n   - TechStart Inc: ${techstartIncidents.length} SaaS platform incidents`
   );
 
   // Add timeline events to some incidents

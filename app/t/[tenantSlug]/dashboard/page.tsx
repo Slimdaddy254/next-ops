@@ -42,16 +42,32 @@ export default function DashboardPage() {
       try {
         // Fetch incidents
         const incidentsRes = await fetch("/api/incidents?limit=100");
+        console.log("Incidents Response:", incidentsRes.status, incidentsRes.statusText);
+        if (!incidentsRes.ok) {
+          console.error("Failed to fetch incidents:", await incidentsRes.text());
+        }
         const incidentsData = await incidentsRes.json();
+        console.log("Incidents Data:", incidentsData);
         const incidents = incidentsData.incidents || [];
 
         // Fetch feature flags
         const flagsRes = await fetch("/api/feature-flags");
-        const flags = await flagsRes.json();
+        console.log("Flags Response:", flagsRes.status, flagsRes.statusText);
+        if (!flagsRes.ok) {
+          console.error("Failed to fetch flags:", await flagsRes.text());
+        }
+        const flagsData = await flagsRes.json();
+        console.log("Flags Data:", flagsData);
+        const flags = flagsData.flags || [];
 
         // Fetch recent audit logs
         const auditRes = await fetch("/api/audit-logs?limit=5");
+        console.log("Audit Logs Response:", auditRes.status, auditRes.statusText);
+        if (!auditRes.ok) {
+          console.error("Failed to fetch audit logs:", await auditRes.text());
+        }
         const auditData = await auditRes.json();
+        console.log("Audit Data:", auditData);
 
         // Calculate stats
         const incidentStats = {

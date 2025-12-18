@@ -81,6 +81,11 @@ export async function PATCH(
       );
     }
 
+    // Verify user exists in database before creating audit log
+    const userExists = await prisma.user.findUnique({
+      where: { id: session.user!.id },
+    });
+
     const flag = await prisma.$transaction(async (tx: PrismaTransaction) => {
       const updated = await tx.featureFlag.update({
         where: { id },
@@ -92,18 +97,20 @@ export async function PATCH(
         },
       });
 
-      // Audit log
-      await tx.auditLog.create({
-        data: {
-          tenantId: tenantContext.tenantId,
-          actorId: session.user!.id,
-          action: "UPDATE",
-          entityType: "FeatureFlag",
-          entityId: id,
-          beforeData: existingFlag,
-          afterData: updated,
-        },
-      });
+      // Only create audit log if user exists in database
+      if (userExists) {
+        await tx.auditLog.create({
+          data: {
+            tenantId: tenantContext.tenantId,
+            actorId: session.user!.id,
+            action: "UPDATE",
+            entityType: "FeatureFlag",
+            entityId: id,
+            beforeData: existingFlag,
+            afterData: updated,
+          },
+        });
+      }
 
       return updated;
     });

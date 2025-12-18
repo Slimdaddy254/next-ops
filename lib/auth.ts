@@ -25,8 +25,7 @@ const SESSION_CONFIG = {
   },
 };
 
-// Cache for dev user to avoid repeated DB queries
-let cachedDevUser: SessionUser | null = null;
+// No cache in dev mode - always get fresh user from DB to avoid FK issues after reseeding
 
 export async function getSession(): Promise<Session> {
   const cookieStore = await cookies();
@@ -34,22 +33,16 @@ export async function getSession(): Promise<Session> {
   
   // DEV MODE: If no user, return a real user from the database for testing
   if (process.env.NODE_ENV === "development" && !session.user) {
-    if (!cachedDevUser) {
-      const user = await prisma.user.findFirst({
-        orderBy: { createdAt: "asc" },
-      });
-      if (user) {
-        cachedDevUser = {
+    const user = await prisma.user.findFirst({
+      orderBy: { createdAt: "asc" },
+    });
+    if (user) {
+      return {
+        user: {
           id: user.id,
           email: user.email,
           name: user.name + " (Dev)",
-        };
-      }
-    }
-    
-    if (cachedDevUser) {
-      return {
-        user: cachedDevUser,
+        },
       };
     }
   }
