@@ -23,6 +23,12 @@ interface Rule {
   order: number;
 }
 
+interface EvaluationResult {
+  enabled: boolean;
+  reason: string;
+  trace: string[];
+}
+
 export default function FeatureFlagDetailPage() {
   const params = useParams();
   const tenantSlug = params.tenantSlug as string;
@@ -46,6 +52,14 @@ export default function FeatureFlagDetailPage() {
   const [newRuleType, setNewRuleType] = useState<"ALLOWLIST" | "PERCENT_ROLLOUT">("ALLOWLIST");
   const [newRuleUsers, setNewRuleUsers] = useState("");
   const [newRulePercent, setNewRulePercent] = useState(50);
+
+  // Evaluation tool state
+  const [showEvaluationTool, setShowEvaluationTool] = useState(false);
+  const [evalUserId, setEvalUserId] = useState("");
+  const [evalEnvironment, setEvalEnvironment] = useState<"DEV" | "STAGING" | "PROD">("PROD");
+  const [evalService, setEvalService] = useState("");
+  const [evaluating, setEvaluating] = useState(false);
+  const [evalResult, setEvalResult] = useState<EvaluationResult | null>(null);
 
   useEffect(() => {
     fetchFlag();
@@ -154,6 +168,36 @@ export default function FeatureFlagDetailPage() {
       return `${cond.percentage || 0}% rollout`;
     }
     return JSON.stringify(rule.condition);
+  };
+
+  const handleEvaluate = async () => {
+    if (!evalUserId.trim()) {
+      alert("Please enter a User ID");
+      return;
+    }
+
+    setEvaluating(true);
+    setEvalResult(null);
+    
+    try {
+      const response = await fetch(`/api/feature-flags/${flagId}/evaluate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userId: evalUserId,
+          environment: evalEnvironment,
+          service: evalService || undefined,
+        }),
+      });
+
+      if (!response.ok) throw new Error("Failed to evaluate flag");
+      const result = await response.json();
+      setEvalResult(result);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to evaluate");
+    } finally {
+      setEvaluating(false);
+    }
   };
 
   if (loading) {
@@ -380,6 +424,103 @@ export default function FeatureFlagDetailPage() {
                 </div>
               ))}
             </div>
+          )}
+        </div>
+
+        {/* Evaluation Tool */}
+        <div className="bg-gray-800 border border-gray-700 rounded-lg shadow-lg p-8 mb-6">
+          <div className="flex justify-between items-center mb-6">
+            <h2 className="text-xl font-semibold text-white">Evaluation Tool</h2>
+            <button
+              onClick={() => setShowEvaluationTool(!showEvaluationTool)}
+              className="text-sm text-blue-400 hover:text-blue-300"
+            >
+              {showEvaluationTool ? "Hide" : "Show"} Tool
+            </button>
+          </div>
+
+          {showEvaluationTool && (
+            <>
+              <p className="text-sm text-gray-400 mb-4">
+                Test how this feature flag evaluates for different users and contexts.
+              </p>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                <div>
+                  <label className="block text-sm text-gray-400 mb-1">User ID *</label>
+                  <input
+                    type="text"
+                    value={evalUserId}
+                    onChange={(e) => setEvalUserId(e.target.value)}
+                    className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white"
+                    placeholder="user-123"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm text-gray-400 mb-1">Environment *</label>
+                  <select
+                    value={evalEnvironment}
+                    onChange={(e) => setEvalEnvironment(e.target.value as "DEV" | "STAGING" | "PROD")}
+                    className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white"
+                  >
+                    <option value="PROD">Production</option>
+                    <option value="STAGING">Staging</option>
+                    <option value="DEV">Development</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm text-gray-400 mb-1">Service (optional)</label>
+                  <input
+                    type="text"
+                    value={evalService}
+                    onChange={(e) => setEvalService(e.target.value)}
+                    className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white"
+                    placeholder="api-gateway"
+                  />
+                </div>
+              </div>
+
+              <button
+                onClick={handleEvaluate}
+                disabled={evaluating || !evalUserId.trim()}
+                className="w-full px-4 py-2 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-600 text-white rounded-lg transition-colors mb-4"
+              >
+                {evaluating ? "Evaluating..." : "Evaluate Flag"}
+              </button>
+
+              {evalResult && (
+                <div className={`p-4 rounded-lg border ${
+                  evalResult.enabled 
+                    ? "bg-green-500/10 border-green-500/30" 
+                    : "bg-red-500/10 border-red-500/30"
+                }`}>
+                  <div className="flex items-center gap-3 mb-3">
+                    <span className={`text-2xl font-bold ${
+                      evalResult.enabled ? "text-green-400" : "text-red-400"
+                    }`}>
+                      {evalResult.enabled ? "✓ ENABLED" : "✗ DISABLED"}
+                    </span>
+                  </div>
+                  <div className="mb-3">
+                    <span className="text-sm text-gray-400">Reason: </span>
+                    <span className="text-white">{evalResult.reason}</span>
+                  </div>
+                  {evalResult.trace && evalResult.trace.length > 0 && (
+                    <div>
+                      <span className="text-sm text-gray-400">Evaluation Trace:</span>
+                      <ul className="mt-2 space-y-1 text-sm text-gray-300 font-mono">
+                        {evalResult.trace.map((step, i) => (
+                          <li key={i} className="flex items-start gap-2">
+                            <span className="text-gray-500">{i + 1}.</span>
+                            <span>{step}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              )}
+            </>
           )}
         </div>
 

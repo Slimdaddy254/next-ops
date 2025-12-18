@@ -19,6 +19,17 @@ interface Incident {
   assignee?: { id: string; name: string; email: string } | null;
 }
 
+interface SavedView {
+  id: string;
+  name: string;
+  filters: {
+    status?: string;
+    severity?: string;
+    environment?: string;
+    search?: string;
+  };
+}
+
 const severityColors = {
   SEV1: "bg-red-500/20 text-red-400 border border-red-500/30",
   SEV2: "bg-orange-500/20 text-orange-400 border border-orange-500/30",
@@ -58,6 +69,12 @@ export default function IncidentsPage({
     search: searchParams.get("search") || "",
   });
 
+  // Saved Views state
+  const [savedViews, setSavedViews] = useState<SavedView[]>([]);
+  const [showSaveViewModal, setShowSaveViewModal] = useState(false);
+  const [newViewName, setNewViewName] = useState("");
+  const [savingView, setSavingView] = useState(false);
+
   useEffect(() => {
     const fetchIncidents = async () => {
       try {
@@ -88,6 +105,69 @@ export default function IncidentsPage({
 
     fetchIncidents();
   }, [filters]);
+
+  // Fetch saved views
+  useEffect(() => {
+    const fetchSavedViews = async () => {
+      try {
+        const response = await fetch(`/api/tenants/${tenantSlug}/saved-views`);
+        if (response.ok) {
+          const data = await response.json();
+          setSavedViews(data);
+        }
+      } catch (err) {
+        console.error("Failed to fetch saved views:", err);
+      }
+    };
+    fetchSavedViews();
+  }, [tenantSlug]);
+
+  const handleSaveView = async () => {
+    if (!newViewName.trim()) return;
+    
+    setSavingView(true);
+    try {
+      const response = await fetch(`/api/tenants/${tenantSlug}/saved-views`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: newViewName, filters }),
+      });
+      
+      if (response.ok) {
+        const newView = await response.json();
+        setSavedViews([newView, ...savedViews]);
+        setNewViewName("");
+        setShowSaveViewModal(false);
+      }
+    } catch (err) {
+      console.error("Failed to save view:", err);
+    } finally {
+      setSavingView(false);
+    }
+  };
+
+  const handleApplyView = (view: SavedView) => {
+    setFilters({
+      status: view.filters.status || "",
+      severity: view.filters.severity || "",
+      environment: view.filters.environment || "",
+      search: view.filters.search || "",
+    });
+  };
+
+  const handleDeleteView = async (viewId: string) => {
+    try {
+      const response = await fetch(`/api/tenants/${tenantSlug}/saved-views/${viewId}`, {
+        method: "DELETE",
+      });
+      
+      if (response.ok) {
+        setSavedViews(savedViews.filter((v) => v.id !== viewId));
+      }
+    } catch (err) {
+      console.error("Failed to delete view:", err);
+    }
+  };
 
   const toggleIncidentSelection = (id: string) => {
     const newSelected = new Set(selectedIncidents);
@@ -226,7 +306,89 @@ export default function IncidentsPage({
               <option value="DEV">Development</option>
             </select>
           </div>
+
+          {/* Saved Views */}
+          <div className="mt-4 pt-4 border-t border-gray-700">
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-sm font-medium text-gray-400">Saved Views</span>
+              <button
+                onClick={() => setShowSaveViewModal(true)}
+                className="text-sm text-blue-400 hover:text-blue-300"
+              >
+                + Save Current View
+              </button>
+            </div>
+            
+            {savedViews.length === 0 ? (
+              <p className="text-sm text-gray-500">No saved views yet</p>
+            ) : (
+              <div className="flex flex-wrap gap-2">
+                {savedViews.map((view) => (
+                  <div
+                    key={view.id}
+                    className="flex items-center gap-2 px-3 py-1.5 bg-gray-700 border border-gray-600 rounded-lg"
+                  >
+                    <button
+                      onClick={() => handleApplyView(view)}
+                      className="text-sm text-white hover:text-blue-300"
+                    >
+                      {view.name}
+                    </button>
+                    <button
+                      onClick={() => handleDeleteView(view.id)}
+                      className="text-gray-500 hover:text-red-400 text-xs"
+                    >
+                      ×
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
+
+        {/* Save View Modal */}
+        {showSaveViewModal && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+            <div className="bg-gray-800 border border-gray-700 rounded-lg p-6 w-96">
+              <h3 className="text-lg font-semibold text-white mb-4">Save Current View</h3>
+              <input
+                type="text"
+                placeholder="View name..."
+                value={newViewName}
+                onChange={(e) => setNewViewName(e.target.value)}
+                className="w-full px-3 py-2 bg-gray-700 border border-gray-600 text-white placeholder-gray-400 rounded-lg mb-4"
+              />
+              <div className="text-sm text-gray-400 mb-4">
+                <p className="font-medium mb-1">Current Filters:</p>
+                <ul className="text-xs space-y-1">
+                  {filters.status && <li>Status: {filters.status}</li>}
+                  {filters.severity && <li>Severity: {filters.severity}</li>}
+                  {filters.environment && <li>Environment: {filters.environment}</li>}
+                  {filters.search && <li>Search: &quot;{filters.search}&quot;</li>}
+                  {!filters.status && !filters.severity && !filters.environment && !filters.search && (
+                    <li>No filters applied</li>
+                  )}
+                </ul>
+              </div>
+              <div className="flex gap-3 justify-end">
+                <button
+                  onClick={() => setShowSaveViewModal(false)}
+                  className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSaveView}
+                  disabled={!newViewName.trim() || savingView}
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 text-white rounded-lg"
+                >
+                  {savingView ? "Saving..." : "Save"}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Bulk Actions Toolbar */}
         {selectedIncidents.size > 0 && (
