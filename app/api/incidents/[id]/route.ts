@@ -130,7 +130,7 @@ export async function PATCH(
           tenantId: tenantContext.tenantId,
           type: "STATUS_CHANGE",
           data: { from: incident.status, to: newStatus },
-          createdById: session.user?.id || "",
+          createdById: session.user.id,
         },
       });
 
@@ -142,7 +142,7 @@ export async function PATCH(
             tenantId: tenantContext.tenantId,
             type: "NOTE",
             message,
-            createdById: session.user?.id || "",
+            createdById: session.user.id,
           },
         });
       }
@@ -151,7 +151,7 @@ export async function PATCH(
       await tx.auditLog.create({
         data: {
           tenantId: tenantContext.tenantId,
-          actorId: session.user?.id || "",
+          actorId: session.user.id,
           action: "UPDATE",
           entityType: "Incident",
           entityId: id,

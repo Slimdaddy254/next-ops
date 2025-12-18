@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
 import { getCurrentTenantContext } from "@/lib/tenant";
 import { prisma } from "@/lib/prisma";
+import { Prisma } from "@prisma/client";
 import { z } from "zod";
 
 const bulkActionSchema = z.object({
@@ -43,6 +44,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Verify user exists before creating audit logs (prevents FK constraint issues)
+    const userExists = await prisma.user.findUnique({
+      where: { id: session.user.id },
+    });
+
     let updatedCount = 0;
 
     if (action === "assign-engineer") {
@@ -80,21 +86,23 @@ export async function POST(request: NextRequest) {
 
       updatedCount = result.count;
 
-      // Create audit logs for each update
-      for (const incident of incidents) {
-        await prisma.auditLog.create({
-          data: {
-            tenantId: tenantContext.tenantId,
-            actorId: session.user.id || "",
-            action: "UPDATE",
-            entityType: "Incident",
-            entityId: incident.id,
-            beforeData: JSON.parse(JSON.stringify(incident)),
-            afterData: JSON.parse(
-              JSON.stringify({ ...incident, assigneeId })
-            ),
-          },
-        });
+      // Create audit logs for each update (only if user exists)
+      if (userExists) {
+        for (const incident of incidents) {
+          await prisma.auditLog.create({
+            data: {
+              tenantId: tenantContext.tenantId,
+              actorId: session.user.id || "",
+              action: "UPDATE",
+              entityType: "Incident",
+              entityId: incident.id,
+              beforeData: JSON.parse(JSON.stringify(incident)) as Prisma.InputJsonValue,
+              afterData: JSON.parse(
+                JSON.stringify({ ...incident, assigneeId })
+              ) as Prisma.InputJsonValue,
+            },
+          });
+        }
       }
     } else if (action === "change-status") {
       if (!status) {
@@ -114,32 +122,34 @@ export async function POST(request: NextRequest) {
 
       updatedCount = result.count;
 
-      // Create timeline events and audit logs
-      for (const incident of incidents) {
-        await prisma.timelineEvent.create({
-          data: {
-            incidentId: incident.id,
-            tenantId: tenantContext.tenantId,
-            type: "STATUS_CHANGE",
-            data: { from: incident.status, to: status },
-            message: message || undefined,
-            createdById: session.user.id || "",
-          },
-        });
+      // Create timeline events and audit logs (only if user exists)
+      if (userExists) {
+        for (const incident of incidents) {
+          await prisma.timelineEvent.create({
+            data: {
+              incidentId: incident.id,
+              tenantId: tenantContext.tenantId,
+              type: "STATUS_CHANGE",
+              data: { from: incident.status, to: status } as Prisma.InputJsonValue,
+              message: message || undefined,
+              createdById: session.user.id || "",
+            },
+          });
 
-        await prisma.auditLog.create({
-          data: {
-            tenantId: tenantContext.tenantId,
-            actorId: session.user.id || "",
-            action: "UPDATE",
-            entityType: "Incident",
-            entityId: incident.id,
-            beforeData: JSON.parse(JSON.stringify(incident)),
-            afterData: JSON.parse(
-              JSON.stringify({ ...incident, status })
-            ),
-          },
-        });
+          await prisma.auditLog.create({
+            data: {
+              tenantId: tenantContext.tenantId,
+              actorId: session.user.id || "",
+              action: "UPDATE",
+              entityType: "Incident",
+              entityId: incident.id,
+              beforeData: JSON.parse(JSON.stringify(incident)) as Prisma.InputJsonValue,
+              afterData: JSON.parse(
+                JSON.stringify({ ...incident, status })
+              ) as Prisma.InputJsonValue,
+            },
+          });
+        }
       }
     }
 

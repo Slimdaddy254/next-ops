@@ -30,6 +30,13 @@ interface SavedView {
   };
 }
 
+interface TeamMember {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+}
+
 const severityColors = {
   SEV1: "bg-red-500/20 text-red-400 border border-red-500/30",
   SEV2: "bg-orange-500/20 text-orange-400 border border-orange-500/30",
@@ -75,35 +82,52 @@ export default function IncidentsPage({
   const [newViewName, setNewViewName] = useState("");
   const [savingView, setSavingView] = useState(false);
 
+  // Team members for assignment
+  const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
+
+  const fetchIncidents = async () => {
+    try {
+      setLoading(true);
+      const queryParams = new URLSearchParams();
+      
+      if (filters.status) queryParams.append("status", filters.status);
+      if (filters.severity) queryParams.append("severity", filters.severity);
+      if (filters.environment)
+        queryParams.append("environment", filters.environment);
+      if (filters.search) queryParams.append("search", filters.search);
+
+      const response = await fetch(`/api/incidents?${queryParams}`);
+      if (!response.ok) {
+        throw new Error("Failed to fetch incidents");
+      }
+
+      const data = await response.json();
+      setIncidents(data.incidents);
+      setError(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unknown error");
+      setIncidents([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const fetchIncidents = async () => {
-      try {
-        setLoading(true);
-        const queryParams = new URLSearchParams();
-        
-        if (filters.status) queryParams.append("status", filters.status);
-        if (filters.severity) queryParams.append("severity", filters.severity);
-        if (filters.environment)
-          queryParams.append("environment", filters.environment);
-        if (filters.search) queryParams.append("search", filters.search);
+    fetchIncidents();
+  }, [filters]);
 
-        const response = await fetch(`/api/incidents?${queryParams}`);
-        if (!response.ok) {
-          throw new Error("Failed to fetch incidents");
-        }
-
-        const data = await response.json();
-        setIncidents(data.incidents);
-        setError(null);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Unknown error");
-        setIncidents([]);
-      } finally {
-        setLoading(false);
+  // Refetch when page becomes visible (user navigates back)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        fetchIncidents();
       }
     };
 
-    fetchIncidents();
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
   }, [filters]);
 
   // Fetch saved views
@@ -120,6 +144,22 @@ export default function IncidentsPage({
       }
     };
     fetchSavedViews();
+  }, [tenantSlug]);
+
+  // Fetch team members for assignment
+  useEffect(() => {
+    const fetchTeamMembers = async () => {
+      try {
+        const response = await fetch(`/api/tenants/${tenantSlug}/members`);
+        if (response.ok) {
+          const data = await response.json();
+          setTeamMembers(data.members || []);
+        }
+      } catch (err) {
+        console.error("Failed to fetch team members:", err);
+      }
+    };
+    fetchTeamMembers();
   }, [tenantSlug]);
 
   const handleSaveView = async () => {
@@ -419,9 +459,11 @@ export default function IncidentsPage({
                     className="px-3 py-2 bg-gray-700 border border-gray-600 text-white rounded-lg text-sm focus:ring-2 focus:ring-blue-500"
                   >
                     <option value="">Select engineer...</option>
-                    <option value="user1">Engineer 1</option>
-                    <option value="user2">Engineer 2</option>
-                    <option value="user3">Engineer 3</option>
+                    {teamMembers.map((member) => (
+                      <option key={member.id} value={member.id}>
+                        {member.name} ({member.role})
+                      </option>
+                    ))}
                   </select>
                 )}
 
