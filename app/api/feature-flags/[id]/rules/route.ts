@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { Prisma } from "@prisma/client";
 import { getCurrentTenantContext } from "@/lib/tenant";
 import { getSession } from "@/lib/auth";
 import { validateRule } from "@/lib/feature-flags";
@@ -67,7 +68,7 @@ export async function POST(
         data: {
           flagId,
           type: (parsed.data.condition as { type: string }).type as "ALLOWLIST" | "PERCENT_ROLLOUT" | "AND" | "OR",
-          condition: parsed.data.condition,
+          condition: parsed.data.condition as unknown as Prisma.InputJsonValue,
           order,
         },
       });

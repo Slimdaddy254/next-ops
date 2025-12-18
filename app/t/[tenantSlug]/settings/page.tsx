@@ -15,7 +15,7 @@ export default async function SettingsPage() {
   const tenant = await prisma.tenant.findUnique({
     where: { id: tenantContext.tenantId },
     include: {
-      memberships: {
+      users: {
         include: {
           user: {
             select: { id: true, name: true, email: true },
@@ -79,7 +79,7 @@ export default async function SettingsPage() {
               </tr>
             </thead>
             <tbody>
-              {tenant.memberships.map((membership: { id: string; role: string; user: { name: string; email: string } }) => (
+              {tenant.users.map((membership: { id: string; role: string; user: { name: string; email: string } }) => (
                 <tr
                   key={membership.id}
                   className="border-b border-gray-700 last:border-0"

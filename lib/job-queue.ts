@@ -1,4 +1,5 @@
 import { prisma } from "./prisma";
+import { Prisma } from "@prisma/client";
 
 export type JobType = "SCAN_ATTACHMENT" | "SEND_NOTIFICATION" | "INCIDENT_SUMMARY";
 export type JobStatus = "PENDING" | "PROCESSING" | "COMPLETED" | "FAILED";
@@ -72,7 +73,7 @@ export async function markJobCompleted(jobId: string, result?: object) {
     where: { id: jobId },
     data: {
       status: "COMPLETED",
-      result: result ?? null,
+      result: (result ?? Prisma.JsonNull) as Prisma.InputJsonValue,
       processedAt: new Date(),
     },
   });

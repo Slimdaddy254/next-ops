@@ -30,7 +30,7 @@ export async function setTenantContext(tenantSlug: string) {
   }
 
   // In dev mode, allow access to any tenant
-  let tenant = membership?.tenant;
+  let tenant = membership?.tenant ?? null;
   if (!tenant && process.env.NODE_ENV === "development") {
     tenant = await prisma.tenant.findUnique({
       where: { slug: tenantSlug },

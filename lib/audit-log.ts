@@ -1,4 +1,5 @@
 import { prisma } from "./prisma";
+import { Prisma } from "@prisma/client";
 
 export interface AuditLogEntry {
   tenantId: string;
@@ -22,9 +23,9 @@ export async function createAuditLog(entry: AuditLogEntry) {
       action: entry.action,
       entityType: entry.entityType,
       entityId: entry.entityId,
-      beforeData: entry.beforeData ?? null,
-      afterData: entry.afterData ?? null,
-      metadata: entry.metadata ?? null,
+      beforeData: (entry.beforeData ?? Prisma.JsonNull) as Prisma.InputJsonValue,
+      afterData: (entry.afterData ?? Prisma.JsonNull) as Prisma.InputJsonValue,
+      metadata: (entry.metadata ?? Prisma.JsonNull) as Prisma.InputJsonValue,
     },
   });
 }

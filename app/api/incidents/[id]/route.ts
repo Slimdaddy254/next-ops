@@ -18,9 +18,11 @@ const VALID_TRANSITIONS: Record<string, string[]> = {
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
+    
     const session = await getSession();
     const tenantContext = await getCurrentTenantContext();
 
@@ -33,7 +35,7 @@ export async function GET(
 
     const incident = await prisma.incident.findFirst({
       where: {
-        id: params.id,
+        id: id,
         tenantId: tenantContext.tenantId,
       },
       include: {
@@ -66,9 +68,11 @@ export async function GET(
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
+    
     const session = await getSession();
     const tenantContext = await getCurrentTenantContext();
 
@@ -85,7 +89,7 @@ export async function PATCH(
     // Get current incident
     const incident = await prisma.incident.findFirst({
       where: {
-        id: params.id,
+        id: id,
         tenantId: tenantContext.tenantId,
       },
     });
@@ -109,10 +113,9 @@ export async function PATCH(
     }
 
     // Update incident in transaction
-    // @ts-expect-error Prisma transaction typing
     const updatedIncident = await prisma.$transaction(async (tx) => {
       const updated = await tx.incident.update({
-        where: { id: params.id },
+        where: { id: id },
         data: { status: newStatus },
         include: {
           createdBy: { select: { id: true, name: true, email: true } },
@@ -123,7 +126,7 @@ export async function PATCH(
       // Create status_change timeline event
       await tx.timelineEvent.create({
         data: {
-          incidentId: params.id,
+          incidentId: id,
           tenantId: tenantContext.tenantId,
           type: "STATUS_CHANGE",
           data: { from: incident.status, to: newStatus },
@@ -135,7 +138,7 @@ export async function PATCH(
       if (message) {
         await tx.timelineEvent.create({
           data: {
-            incidentId: params.id,
+            incidentId: id,
             tenantId: tenantContext.tenantId,
             type: "NOTE",
             message,
@@ -151,7 +154,7 @@ export async function PATCH(
           actorId: session.user?.id || "",
           action: "UPDATE",
           entityType: "Incident",
-          entityId: params.id,
+          entityId: id,
           beforeData: JSON.parse(JSON.stringify(incident)),
           afterData: JSON.parse(JSON.stringify(updated)),
         },

@@ -5,9 +5,11 @@ import { prisma } from "@/lib/prisma";
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { tenantId: string; viewId: string } }
+  { params }: { params: Promise<{ tenantId: string; viewId: string }> }
 ) {
   try {
+    const { tenantId, viewId } = await params;
+    
     const session = await getSession();
     if (!session || !session.user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -21,8 +23,8 @@ export async function DELETE(
     // Verify view belongs to user and tenant
     const savedView = await prisma.savedView.findFirst({
       where: {
-        id: params.viewId,
-        tenantId: params.tenantId,
+        id: viewId,
+        tenantId: tenantId,
         userId: session.user.id || "",
       },
     });
@@ -35,7 +37,7 @@ export async function DELETE(
     }
 
     await prisma.savedView.delete({
-      where: { id: params.viewId },
+      where: { id: viewId },
     });
 
     return NextResponse.json({ success: true });

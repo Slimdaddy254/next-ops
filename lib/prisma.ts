@@ -33,7 +33,6 @@ export async function getTenantPrisma() {
 }
 
 // Prisma middleware to enforce tenant filtering
-  // @ts-expect-error Prisma middleware types are complex
   prisma.$use(async (params, next) => {
   // Only apply tenant filtering on data access operations
   if (["findUnique", "findUniqueOrThrow", "findFirst", "findMany", "update", "updateMany", "delete", "deleteMany"].includes(params.action)) {
