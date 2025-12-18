@@ -4,6 +4,7 @@ import Link from "next/link";
 import { auth } from "@/auth";
 import UserMenu from "@/app/components/UserMenu";
 import Sidebar from "@/app/components/Sidebar";
+import TenantContextSetter from "@/app/components/TenantContextSetter";
 import { prisma } from "@/lib/prisma";
 
 type Membership = {
@@ -83,6 +84,9 @@ export default async function TenantLayout({ children, params }: TenantLayoutPro
 
   return (
     <div className="min-h-screen bg-gray-900">
+      {/* Tenant Context Setter - updates session when tenant changes */}
+      <TenantContextSetter tenantSlug={tenantSlug} />
+      
       {/* Top Navigation */}
       <header className="bg-gray-800 border-b border-gray-700 sticky top-0 z-40">
         <div className="flex items-center justify-between px-4 py-3">
