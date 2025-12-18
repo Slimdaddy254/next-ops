@@ -2,6 +2,15 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import {
+  faFile,
+  faFileWord,
+  faFileExcel,
+  faImage,
+  faPaperclip,
+  faTrash,
+} from "@fortawesome/free-solid-svg-icons";
 
 interface Attachment {
   id: string;
@@ -90,13 +99,13 @@ export default function IncidentDetailPage({
   }, [params.id]);
 
   const getFileIcon = (fileType: string) => {
-    if (fileType.includes("pdf")) return "📄";
+    if (fileType.includes("pdf")) return faFile;
     if (fileType.includes("word") || fileType.includes("document"))
-      return "📝";
+      return faFileWord;
     if (fileType.includes("sheet") || fileType.includes("excel"))
-      return "📊";
-    if (fileType.includes("image")) return "🖼️";
-    return "📎";
+      return faFileExcel;
+    if (fileType.includes("image")) return faImage;
+    return faPaperclip;
   };
 
   const handleStatusTransition = async (newStatus: string) => {
@@ -339,9 +348,10 @@ export default function IncidentDetailPage({
                   className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100"
                 >
                   <div className="flex items-center gap-3 flex-1">
-                    <span className="text-2xl">
-                      {getFileIcon(attachment.fileType)}
-                    </span>
+                    <FontAwesomeIcon
+                      icon={getFileIcon(attachment.fileType)}
+                      className="text-xl text-blue-600"
+                    />
                     <div className="flex-1">
                       <p className="font-semibold text-gray-900">
                         {attachment.fileName}
@@ -355,9 +365,10 @@ export default function IncidentDetailPage({
                   </div>
                   <button
                     onClick={() => handleDeleteAttachment(attachment.id)}
-                    className="ml-4 text-red-600 hover:text-red-700 text-sm font-semibold"
+                    className="ml-4 text-red-600 hover:text-red-700"
+                    title="Delete attachment"
                   >
-                    Delete
+                    <FontAwesomeIcon icon={faTrash} className="text-lg" />
                   </button>
                 </div>
               ))}
