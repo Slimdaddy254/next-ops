@@ -52,6 +52,7 @@ jobs:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/next_ops_test
           NEXTAUTH_SECRET: test-secret-key-for-ci
           NEXTAUTH_URL: http://localhost:3000
+          NODE_ENV: test
 
       - name: Build application
         run: npm run build
