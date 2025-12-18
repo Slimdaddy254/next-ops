@@ -113,7 +113,7 @@ export default function NewIncidentPage({
                 onChange={(e) =>
                   setFormData({
                     ...formData,
-                    severity: e.target.value as any,
+                    severity: e.target.value as "SEV1" | "SEV2" | "SEV3" | "SEV4",
                   })
                 }
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -134,7 +134,7 @@ export default function NewIncidentPage({
                 onChange={(e) =>
                   setFormData({
                     ...formData,
-                    environment: e.target.value as any,
+                    environment: e.target.value as "DEV" | "STAGING" | "PROD",
                   })
                 }
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"

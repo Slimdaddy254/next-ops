@@ -47,35 +47,35 @@ export default function IncidentsPage({
   });
 
   useEffect(() => {
+    const fetchIncidents = async () => {
+      try {
+        setLoading(true);
+        const queryParams = new URLSearchParams();
+        
+        if (filters.status) queryParams.append("status", filters.status);
+        if (filters.severity) queryParams.append("severity", filters.severity);
+        if (filters.environment)
+          queryParams.append("environment", filters.environment);
+        if (filters.search) queryParams.append("search", filters.search);
+
+        const response = await fetch(`/api/incidents?${queryParams}`);
+        if (!response.ok) {
+          throw new Error("Failed to fetch incidents");
+        }
+
+        const data = await response.json();
+        setIncidents(data.incidents);
+        setError(null);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Unknown error");
+        setIncidents([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
     fetchIncidents();
   }, [filters]);
-
-  const fetchIncidents = async () => {
-    try {
-      setLoading(true);
-      const queryParams = new URLSearchParams();
-      
-      if (filters.status) queryParams.append("status", filters.status);
-      if (filters.severity) queryParams.append("severity", filters.severity);
-      if (filters.environment)
-        queryParams.append("environment", filters.environment);
-      if (filters.search) queryParams.append("search", filters.search);
-
-      const response = await fetch(`/api/incidents?${queryParams}`);
-      if (!response.ok) {
-        throw new Error("Failed to fetch incidents");
-      }
-
-      const data = await response.json();
-      setIncidents(data.incidents);
-      setError(null);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Unknown error");
-      setIncidents([]);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   return (
     <div className="min-h-screen bg-gray-50 p-8">

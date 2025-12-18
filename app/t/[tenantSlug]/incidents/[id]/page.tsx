@@ -1,14 +1,13 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
 
 interface TimelineEvent {
   id: string;
   type: "NOTE" | "ACTION" | "STATUS_CHANGE";
   message?: string;
-  data?: any;
+  data?: Record<string, unknown>;
   createdAt: string;
   createdBy: { id: string; name: string };
 }
@@ -45,7 +44,6 @@ export default function IncidentDetailPage({
 }: {
   params: { tenantSlug: string; id: string };
 }) {
-  const router = useRouter();
   const [incident, setIncident] = useState<Incident | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -53,25 +51,25 @@ export default function IncidentDetailPage({
   const [transitionMessage, setTransitionMessage] = useState("");
 
   useEffect(() => {
-    fetchIncident();
-  }, []);
-
-  const fetchIncident = async () => {
-    try {
-      setLoading(true);
-      const response = await fetch(`/api/incidents/${params.id}`);
-      if (!response.ok) {
-        throw new Error("Failed to fetch incident");
+    const fetchIncident = async () => {
+      try {
+        setLoading(true);
+        const response = await fetch(`/api/incidents/${params.id}`);
+        if (!response.ok) {
+          throw new Error("Failed to fetch incident");
+        }
+        const data = await response.json();
+        setIncident(data);
+        setError(null);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Unknown error");
+      } finally {
+        setLoading(false);
       }
-      const data = await response.json();
-      setIncident(data);
-      setError(null);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Unknown error");
-    } finally {
-      setLoading(false);
-    }
-  };
+    };
+
+    fetchIncident();
+  }, [params.id]);
 
   const handleStatusTransition = async (newStatus: string) => {
     if (!incident) return;

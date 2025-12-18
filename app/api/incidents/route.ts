@@ -42,7 +42,7 @@ export async function GET(request: NextRequest) {
     const parsedQuery = listIncidentsSchema.parse(query);
 
     // Build filter conditions
-    const where: any = {
+    const where: Record<string, unknown> = {
       tenantId: tenantContext.tenantId,
     };
 
@@ -147,7 +147,7 @@ export async function POST(request: NextRequest) {
         action: "CREATE",
         entityType: "Incident",
         entityId: incident.id,
-        afterData: incident as any,
+        afterData: JSON.parse(JSON.stringify(incident)),
       },
     });
 
@@ -155,7 +155,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json(
-        { error: "Validation error", details: error.errors },
+        { error: "Validation error", details: error.issues },
         { status: 400 }
       );
     }

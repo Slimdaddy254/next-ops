@@ -1,10 +1,10 @@
-const { PrismaClient } = require("@prisma/client");
-const bcryptjs = require("bcryptjs");
+import { PrismaClient } from "@prisma/client";
+import { hash } from "bcryptjs";
 
 const prisma = new PrismaClient();
 
 async function hashPassword(password) {
-  return bcryptjs.hash(password, 10);
+  return hash(password, 10);
 }
 
 async function main() {
@@ -112,7 +112,7 @@ async function main() {
   );
 
   // Create Sample Incidents for Tenant 2
-  const incidents2 = await Promise.all(
+  await Promise.all(
     Array.from({ length: 20 }, (_, i) =>
       prisma.incident.create({
         data: {
@@ -158,7 +158,7 @@ async function main() {
   console.log("✅ Created timeline events");
 
   // Create Feature Flags for Tenant 1
-  const flags1 = await Promise.all(
+  await Promise.all(
     Array.from({ length: 10 }, (_, i) =>
       prisma.featureFlag.create({
         data: {
@@ -183,7 +183,7 @@ async function main() {
   );
 
   // Create Feature Flags for Tenant 2
-  const flags2 = await Promise.all(
+  await Promise.all(
     Array.from({ length: 10 }, (_, i) =>
       prisma.featureFlag.create({
         data: {

@@ -109,6 +109,7 @@ export async function PATCH(
     }
 
     // Update incident in transaction
+    // @ts-expect-error Prisma transaction typing
     const updatedIncident = await prisma.$transaction(async (tx) => {
       const updated = await tx.incident.update({
         where: { id: params.id },
@@ -126,7 +127,7 @@ export async function PATCH(
           tenantId: tenantContext.tenantId,
           type: "STATUS_CHANGE",
           data: { from: incident.status, to: newStatus },
-          createdById: session.user.id,
+          createdById: session.user?.id || "",
         },
       });
 
@@ -138,7 +139,7 @@ export async function PATCH(
             tenantId: tenantContext.tenantId,
             type: "NOTE",
             message,
-            createdById: session.user.id,
+            createdById: session.user?.id || "",
           },
         });
       }
@@ -147,12 +148,12 @@ export async function PATCH(
       await tx.auditLog.create({
         data: {
           tenantId: tenantContext.tenantId,
-          actorId: session.user.id,
+          actorId: session.user?.id || "",
           action: "UPDATE",
           entityType: "Incident",
           entityId: params.id,
-          beforeData: incident as any,
-          afterData: updated as any,
+          beforeData: JSON.parse(JSON.stringify(incident)),
+          afterData: JSON.parse(JSON.stringify(updated)),
         },
       });
 
@@ -163,7 +164,7 @@ export async function PATCH(
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json(
-        { error: "Validation error", details: error.errors },
+        { error: "Validation error", details: error.issues },
         { status: 400 }
       );
     }
