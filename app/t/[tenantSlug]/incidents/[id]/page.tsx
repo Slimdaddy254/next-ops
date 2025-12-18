@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, use } from "react";
 import Link from "next/link";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
@@ -10,6 +10,11 @@ import {
   faImage,
   faPaperclip,
   faTrash,
+  faSpinner,
+  faPlus,
+  faStickyNote,
+  faBolt,
+  faExchangeAlt,
 } from "@fortawesome/free-solid-svg-icons";
 
 interface Attachment {
@@ -60,15 +65,16 @@ const statusColors = {
 
 const VALID_TRANSITIONS: Record<string, string[]> = {
   OPEN: ["MITIGATED", "RESOLVED"],
-  MITIGATED: ["RESOLVED", "OPEN"],
-  RESOLVED: ["OPEN"],
+  MITIGATED: ["RESOLVED"],
+  RESOLVED: [], // Cannot transition from resolved
 };
 
 export default function IncidentDetailPage({
   params,
 }: {
-  params: { tenantSlug: string; id: string };
+  params: Promise<{ tenantSlug: string; id: string }>;
 }) {
+  const { tenantSlug, id } = use(params);
   const [incident, setIncident] = useState<Incident | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -76,12 +82,18 @@ export default function IncidentDetailPage({
   const [transitionMessage, setTransitionMessage] = useState("");
   const [uploading, setUploading] = useState(false);
   const [dragActive, setDragActive] = useState(false);
+  const [noteInput, setNoteInput] = useState("");
+  const [actionInput, setActionInput] = useState("");
+  const [addingNote, setAddingNote] = useState(false);
+  const [addingAction, setAddingAction] = useState(false);
+  const [isConnected, setIsConnected] = useState(false);
 
+  // Initial fetch
   useEffect(() => {
     const fetchIncident = async () => {
       try {
         setLoading(true);
-        const response = await fetch(`/api/incidents/${params.id}`);
+        const response = await fetch(`/api/incidents/${id}`);
         if (!response.ok) {
           throw new Error("Failed to fetch incident");
         }
@@ -96,7 +108,54 @@ export default function IncidentDetailPage({
     };
 
     fetchIncident();
-  }, [params.id]);
+  }, [id]);
+
+  // SSE for realtime updates
+  useEffect(() => {
+    if (!incident) return;
+
+    const eventSource = new EventSource(`/api/incidents/${id}/stream`);
+
+    eventSource.onopen = () => {
+      setIsConnected(true);
+    };
+
+    eventSource.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+
+        if (data.type === "incident_updated" && incident) {
+          setIncident({
+            ...incident,
+            ...data.data,
+          });
+        }
+
+        if (data.type === "timeline_updated" && incident) {
+          // Merge new events at the beginning
+          const newEvents = data.data.newEvents;
+          setIncident({
+            ...incident,
+            timeline: [...newEvents, ...incident.timeline],
+          });
+        }
+
+        if (data.type === "deleted") {
+          setError("This incident has been deleted");
+        }
+      } catch (e) {
+        // Ignore parse errors for heartbeats
+      }
+    };
+
+    eventSource.onerror = () => {
+      setIsConnected(false);
+    };
+
+    return () => {
+      eventSource.close();
+    };
+  }, [id, incident?.id]);
 
   const getFileIcon = (fileType: string) => {
     if (fileType.includes("pdf")) return faFile;
@@ -113,7 +172,7 @@ export default function IncidentDetailPage({
 
     setUpdating(true);
     try {
-      const response = await fetch(`/api/incidents/${params.id}`, {
+      const response = await fetch(`/api/incidents/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -148,7 +207,7 @@ export default function IncidentDetailPage({
         formData.append("file", file);
 
         const response = await fetch(
-          `/api/incidents/${params.id}/attachments`,
+          `/api/incidents/${id}/attachments`,
           {
             method: "POST",
             body: formData,
@@ -161,7 +220,7 @@ export default function IncidentDetailPage({
       }
 
       // Refresh incident to get updated attachments
-      const refreshResponse = await fetch(`/api/incidents/${params.id}`);
+      const refreshResponse = await fetch(`/api/incidents/${id}`);
       if (refreshResponse.ok) {
         const updated = await refreshResponse.json();
         setIncident(updated);
@@ -179,7 +238,7 @@ export default function IncidentDetailPage({
 
     try {
       const response = await fetch(
-        `/api/incidents/${params.id}/attachments/${attachmentId}`,
+        `/api/incidents/${id}/attachments/${attachmentId}`,
         {
           method: "DELETE",
         }
@@ -202,6 +261,64 @@ export default function IncidentDetailPage({
     }
   };
 
+  const handleAddNote = async () => {
+    if (!noteInput.trim() || !incident) return;
+
+    setAddingNote(true);
+    try {
+      const response = await fetch(`/api/incidents/${id}/timeline`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type: "NOTE", message: noteInput }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to add note");
+      }
+
+      // Refresh incident to get updated timeline
+      const refreshResponse = await fetch(`/api/incidents/${id}`);
+      if (refreshResponse.ok) {
+        const updated = await refreshResponse.json();
+        setIncident(updated);
+      }
+      setNoteInput("");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to add note");
+    } finally {
+      setAddingNote(false);
+    }
+  };
+
+  const handleAddAction = async () => {
+    if (!actionInput.trim() || !incident) return;
+
+    setAddingAction(true);
+    try {
+      const response = await fetch(`/api/incidents/${id}/timeline`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type: "ACTION", message: actionInput }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to add action");
+      }
+
+      // Refresh incident to get updated timeline
+      const refreshResponse = await fetch(`/api/incidents/${id}`);
+      if (refreshResponse.ok) {
+        const updated = await refreshResponse.json();
+        setIncident(updated);
+      }
+      setActionInput("");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to add action");
+    } finally {
+      setAddingAction(false);
+    }
+  };
+
   if (loading) return <div className="text-center py-8">Loading...</div>;
   if (error) return <div className="text-center py-8 text-red-500">Error: {error}</div>;
   if (!incident) return <div className="text-center py-8">Not found</div>;
@@ -209,12 +326,24 @@ export default function IncidentDetailPage({
   return (
     <div className="min-h-screen bg-gray-50 p-8">
       <div className="max-w-4xl mx-auto">
-        <Link
-          href={`/t/${params.tenantSlug}/incidents`}
-          className="text-blue-600 hover:text-blue-700 mb-4 inline-block"
-        >
-          ← Back to Incidents
-        </Link>
+        <div className="flex justify-between items-center mb-4">
+          <Link
+            href={`/t/${tenantSlug}/incidents`}
+            className="text-blue-600 hover:text-blue-700"
+          >
+            ← Back to Incidents
+          </Link>
+          <div className="flex items-center gap-2">
+            <span
+              className={`w-2 h-2 rounded-full ${
+                isConnected ? "bg-green-500" : "bg-gray-400"
+              }`}
+            />
+            <span className="text-sm text-gray-500">
+              {isConnected ? "Live" : "Connecting..."}
+            </span>
+          </div>
+        </div>
 
         <div className={`bg-white rounded-lg shadow p-8 mb-8 border-l-4 ${statusColors[incident.status]}`}>
           <div className="flex justify-between items-start mb-6">
@@ -379,30 +508,96 @@ export default function IncidentDetailPage({
         {/* Timeline */}
         <div className="bg-white rounded-lg shadow p-8">
           <h2 className="text-xl font-bold text-gray-900 mb-6">Timeline</h2>
-          <div className="space-y-6">
+          
+          {/* Add Note/Action Forms */}
+          <div className="mb-8 space-y-4">
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={noteInput}
+                onChange={(e) => setNoteInput(e.target.value)}
+                placeholder="Add a note..."
+                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                onKeyDown={(e) => e.key === "Enter" && handleAddNote()}
+              />
+              <button
+                onClick={handleAddNote}
+                disabled={addingNote || !noteInput.trim()}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400 flex items-center gap-2"
+              >
+                {addingNote ? (
+                  <FontAwesomeIcon icon={faSpinner} className="animate-spin" />
+                ) : (
+                  <FontAwesomeIcon icon={faStickyNote} />
+                )}
+                Note
+              </button>
+            </div>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={actionInput}
+                onChange={(e) => setActionInput(e.target.value)}
+                placeholder="Log an action taken..."
+                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                onKeyDown={(e) => e.key === "Enter" && handleAddAction()}
+              />
+              <button
+                onClick={handleAddAction}
+                disabled={addingAction || !actionInput.trim()}
+                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:bg-gray-400 flex items-center gap-2"
+              >
+                {addingAction ? (
+                  <FontAwesomeIcon icon={faSpinner} className="animate-spin" />
+                ) : (
+                  <FontAwesomeIcon icon={faBolt} />
+                )}
+                Action
+              </button>
+            </div>
+          </div>
+
+          <div className="space-y-4">
             {incident.timeline.length === 0 ? (
               <p className="text-gray-500">No timeline events yet</p>
             ) : (
               incident.timeline.map((event) => (
-                <div key={event.id} className="flex gap-4">
+                <div key={event.id} className="flex gap-4 p-4 bg-gray-50 rounded-lg">
                   <div className="flex flex-col items-center">
                     <div
-                      className={`w-3 h-3 rounded-full ${
+                      className={`w-8 h-8 rounded-full flex items-center justify-center ${
                         event.type === "STATUS_CHANGE"
-                          ? "bg-blue-500"
-                          : "bg-gray-300"
+                          ? "bg-blue-100 text-blue-600"
+                          : event.type === "ACTION"
+                          ? "bg-green-100 text-green-600"
+                          : "bg-yellow-100 text-yellow-600"
                       }`}
-                    />
+                    >
+                      <FontAwesomeIcon
+                        icon={
+                          event.type === "STATUS_CHANGE"
+                            ? faExchangeAlt
+                            : event.type === "ACTION"
+                            ? faBolt
+                            : faStickyNote
+                        }
+                        className="text-sm"
+                      />
+                    </div>
                   </div>
                   <div className="flex-1">
-                    <p className="font-semibold text-gray-900">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-xs font-medium px-2 py-0.5 rounded bg-gray-200 text-gray-700">
+                        {event.type.replace("_", " ")}
+                      </span>
+                      <span className="text-sm text-gray-500">
+                        {event.createdBy.name} • {new Date(event.createdAt).toLocaleString()}
+                      </span>
+                    </div>
+                    <p className="text-gray-900">
                       {event.type === "STATUS_CHANGE"
-                        ? `Status changed: ${event.data?.from || "created"} → ${event.data?.to}`
-                        : event.message || "Action"}
-                    </p>
-                    <p className="text-sm text-gray-600">
-                      {event.createdBy.name} •{" "}
-                      {new Date(event.createdAt).toLocaleString()}
+                        ? `Status changed from ${event.data?.from || "New"} to ${event.data?.to}`
+                        : event.message || "No message"}
                     </p>
                   </div>
                 </div>

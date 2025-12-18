@@ -29,7 +29,11 @@ export async function GET(request: NextRequest) {
     const session = await getSession();
     const tenantContext = await getCurrentTenantContext();
 
+    console.log("DEBUG - Session:", session);
+    console.log("DEBUG - Tenant Context:", tenantContext);
+
     if (!session.user || !tenantContext) {
+      console.log("DEBUG - Auth failed:", { hasUser: !!session.user, hasTenant: !!tenantContext });
       return NextResponse.json(
         { error: "Unauthorized" },
         { status: 401 }

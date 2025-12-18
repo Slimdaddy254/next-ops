@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
 import { getCurrentTenantContext } from "@/lib/tenant";
 import { prisma } from "@/lib/prisma";
+import { enqueueJob } from "@/lib/job-queue";
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 const ALLOWED_TYPES = [
@@ -18,9 +19,10 @@ const ALLOWED_TYPES = [
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id: incidentId } = await params;
     const session = await getSession();
     if (!session || !session.user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -34,7 +36,7 @@ export async function POST(
     // Verify incident exists and user has access
     const incident = await prisma.incident.findFirst({
       where: {
-        id: params.id,
+        id: incidentId,
         tenantId: tenantContext.tenantId,
       },
     });
@@ -75,14 +77,21 @@ export async function POST(
     // Create attachment record
     const attachment = await prisma.attachment.create({
       data: {
-        incidentId: params.id,
+        incidentId,
         tenantId: tenantContext.tenantId,
         fileName: file.name,
-        fileType: file.type,
+        mimeType: file.type,
         fileSize: file.size,
-        storagePath: `incidents/${params.id}/${file.name}`,
-        uploadedById: session.user.id || "",
+        url: `/uploads/incidents/${incidentId}/${file.name}`,
+        scanStatus: "PENDING",
       },
+    });
+
+    // Enqueue background job for virus scanning
+    await enqueueJob(tenantContext.tenantId, "SCAN_ATTACHMENT", {
+      attachmentId: attachment.id,
+      fileName: file.name,
+      mimeType: file.type,
     });
 
     return NextResponse.json(attachment, { status: 201 });

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, use } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 
@@ -15,8 +15,9 @@ interface FormData {
 export default function NewIncidentPage({
   params,
 }: {
-  params: { tenantSlug: string };
+  params: Promise<{ tenantSlug: string }>;
 }) {
+  const { tenantSlug } = use(params);
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -57,7 +58,7 @@ export default function NewIncidentPage({
       }
 
       const incident = await response.json();
-      router.push(`/t/${params.tenantSlug}/incidents/${incident.id}`);
+      router.push(`/t/${tenantSlug}/incidents/${incident.id}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unknown error");
       setLoading(false);
@@ -69,7 +70,7 @@ export default function NewIncidentPage({
       <div className="max-w-2xl mx-auto">
         <div className="mb-8">
           <Link
-            href={`/t/${params.tenantSlug}/incidents`}
+            href={`/t/${tenantSlug}/incidents`}
             className="text-blue-600 hover:text-blue-700 mb-4 inline-block"
           >
             ← Back to Incidents
@@ -187,7 +188,7 @@ export default function NewIncidentPage({
               {loading ? "Creating..." : "Create Incident"}
             </button>
             <Link
-              href={`/t/${params.tenantSlug}/incidents`}
+              href={`/t/${tenantSlug}/incidents`}
               className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
             >
               Cancel

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, use } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
@@ -35,8 +35,9 @@ const statusColors = {
 export default function IncidentsPage({
   params,
 }: {
-  params: { tenantSlug: string };
+  params: Promise<{ tenantSlug: string }>;
 }) {
+  const { tenantSlug } = use(params);
   const searchParams = useSearchParams();
   const [incidents, setIncidents] = useState<Incident[]>([]);
   const [loading, setLoading] = useState(true);
@@ -165,7 +166,7 @@ export default function IncidentsPage({
         <div className="flex justify-between items-center mb-8">
           <h1 className="text-3xl font-bold text-gray-900">Incidents</h1>
           <Link
-            href={`/t/${params.tenantSlug}/incidents/new`}
+            href={`/t/${tenantSlug}/incidents/new`}
             className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
           >
             New Incident
@@ -355,7 +356,7 @@ export default function IncidentsPage({
                   className="w-5 h-5 rounded border-gray-300 cursor-pointer mt-1"
                 />
                 <Link
-                  href={`/t/${params.tenantSlug}/incidents/${incident.id}`}
+                  href={`/t/${tenantSlug}/incidents/${incident.id}`}
                   className="flex-1"
                 >
                   <div className="flex justify-between items-start mb-4">

@@ -1,4 +1,5 @@
 import { getSession } from "./auth";
+import { prisma } from "./prisma";
 
 /**
  * Get the current tenant context from the session
@@ -7,6 +8,19 @@ import { getSession } from "./auth";
 export async function getCurrentTenantContext() {
   const session = await getSession();
   
+  // DEV MODE: If no session, use first tenant for testing
+  if (process.env.NODE_ENV === "development" && (!session.tenantId || !session.tenantSlug)) {
+    const tenant = await prisma.tenant.findFirst({
+      orderBy: { createdAt: "asc" },
+    });
+    if (tenant) {
+      return {
+        tenantId: tenant.id,
+        tenantSlug: tenant.slug,
+      };
+    }
+  }
+
   if (!session.tenantId || !session.tenantSlug) {
     return null;
   }

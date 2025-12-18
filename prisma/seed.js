@@ -10,6 +10,19 @@ async function hashPassword(password) {
 async function main() {
   console.log("🌱 Seeding database...");
 
+  // Clean up existing data
+  await prisma.auditLog.deleteMany();
+  await prisma.timelineEvent.deleteMany();
+  await prisma.attachment.deleteMany();
+  await prisma.incident.deleteMany();
+  await prisma.featureFlag.deleteMany();
+  await prisma.membership.deleteMany();
+  await prisma.user.deleteMany();
+  await prisma.tenant.deleteMany();
+  await prisma.savedView.deleteMany();
+
+  console.log("🧹 Cleared existing data");
+
   // Create Tenants
   const tenant1 = await prisma.tenant.create({
     data: {

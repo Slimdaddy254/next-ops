@@ -14,7 +14,7 @@ export interface Session {
 }
 
 const SESSION_CONFIG = {
-  password: process.env.NEXTAUTH_SECRET || "your-secret-key-min-32-chars!!!",
+  password: process.env.NEXTAUTH_SECRET || "12345678901234567890123456789012", // Exactly 32 chars minimum
   cookieName: "ops_session",
   cookieOptions: {
     secure: process.env.NODE_ENV === "production",
@@ -27,6 +27,18 @@ const SESSION_CONFIG = {
 export async function getSession(): Promise<Session> {
   const cookieStore = await cookies();
   const session = await getIronSession<Session>(cookieStore, SESSION_CONFIG);
+  
+  // DEV MODE: If no user, return a mock user for testing
+  if (process.env.NODE_ENV === "development" && !session.user) {
+    return {
+      user: {
+        id: "dev-user-id",
+        email: "alice@acme.com",
+        name: "Alice Johnson (Dev)",
+      },
+    };
+  }
+  
   return session;
 }
 
