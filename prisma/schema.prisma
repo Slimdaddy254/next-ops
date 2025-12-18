@@ -1,0 +1,275 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Multi-tenant core models
+model Tenant {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users       Membership[]
+  incidents   Incident[]
+  featureFlags FeatureFlag[]
+  auditLogs   AuditLog[]
+
+  @@index([slug])
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String
+  password  String   // bcrypt hashed
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  memberships     Membership[]
+  createdIncidents Incident[] @relation("createdIncidents")
+  assignedIncidents Incident[] @relation("assignee")
+  auditLogs       AuditLog[]
+  savedViews      SavedView[]
+  timelineEvents  TimelineEvent[]
+
+  @@index([email])
+}
+
+model Membership {
+  id        String   @id @default(cuid())
+  userId    String
+  tenantId  String
+  role      Role     @default(VIEWER)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, tenantId])
+  @@index([userId])
+  @@index([tenantId])
+}
+
+enum Role {
+  ADMIN
+  ENGINEER
+  VIEWER
+}
+
+// Incident Management
+model Incident {
+  id          String   @id @default(cuid())
+  tenantId    String
+  title       String
+  severity    Severity
+  status      IncidentStatus
+  service     String
+  environment Environment
+  tags        String[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  createdById String
+  assigneeId  String?
+
+  tenant       Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdBy    User   @relation("createdIncidents", fields: [createdById], references: [id], onDelete: SetNull)
+  assignee     User?  @relation("assignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+  timeline     TimelineEvent[]
+  attachments  Attachment[]
+
+  @@index([tenantId])
+  @@index([createdById])
+  @@index([assigneeId])
+  @@index([status])
+  @@index([severity])
+  @@index([environment])
+  @@index([service])
+}
+
+enum Severity {
+  SEV1
+  SEV2
+  SEV3
+  SEV4
+}
+
+enum IncidentStatus {
+  OPEN
+  MITIGATED
+  RESOLVED
+}
+
+enum Environment {
+  DEV
+  STAGING
+  PROD
+}
+
+model TimelineEvent {
+  id          String   @id @default(cuid())
+  incidentId  String
+  tenantId    String
+  type        TimelineEventType
+  message     String?
+  data        Json?
+  createdAt   DateTime @default(now())
+  createdById String
+
+  incident  Incident @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+  createdBy User     @relation(fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([incidentId])
+  @@index([tenantId])
+  @@index([createdById])
+}
+
+enum TimelineEventType {
+  NOTE
+  ACTION
+  STATUS_CHANGE
+}
+
+model Attachment {
+  id         String   @id @default(cuid())
+  incidentId String
+  tenantId   String
+  fileName   String
+  fileSize   Int
+  mimeType   String
+  url        String
+  metadata   Json?
+  scanStatus ScanStatus @default(PENDING)
+  createdAt  DateTime @default(now())
+
+  incident Incident @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+
+  @@index([incidentId])
+  @@index([tenantId])
+}
+
+enum ScanStatus {
+  PENDING
+  SCANNING
+  CLEAN
+  INFECTED
+  FAILED
+}
+
+model SavedView {
+  id        String   @id @default(cuid())
+  tenantId  String
+  userId    String
+  name      String
+  filters   Json     // stored filter configuration
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([userId])
+}
+
+// Feature Flags
+model FeatureFlag {
+  id          String   @id @default(cuid())
+  tenantId    String
+  key         String
+  name        String
+  description String?
+  enabled     Boolean  @default(false)
+  environment Environment
+  rules       Rule[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, key, environment])
+  @@index([tenantId])
+  @@index([key])
+}
+
+model Rule {
+  id           String   @id @default(cuid())
+  flagId       String
+  type         RuleType
+  condition    Json     // Zod validated rule condition
+  order        Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  featureFlag FeatureFlag @relation(fields: [flagId], references: [id], onDelete: Cascade)
+
+  @@index([flagId])
+}
+
+enum RuleType {
+  ALLOWLIST
+  PERCENT_ROLLOUT
+  AND
+  OR
+}
+
+// Audit Logging
+model AuditLog {
+  id          String   @id @default(cuid())
+  tenantId    String
+  actorId     String
+  action      String
+  entityType  String
+  entityId    String?
+  beforeData  Json?
+  afterData   Json?
+  metadata    Json?
+  createdAt   DateTime @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  actor  User   @relation(fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId])
+  @@index([actorId])
+  @@index([createdAt])
+}
+
+// Background Jobs
+model Job {
+  id        String   @id @default(cuid())
+  tenantId  String
+  type      JobType
+  payload   Json
+  status    JobStatus @default(PENDING)
+  result    Json?
+  error     String?
+  retries   Int       @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  processedAt DateTime?
+
+  @@index([tenantId])
+  @@index([status])
+  @@index([type])
+}
+
+enum JobType {
+  SCAN_ATTACHMENT
+  SEND_NOTIFICATION
+  INCIDENT_SUMMARY
+}
+
+enum JobStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
