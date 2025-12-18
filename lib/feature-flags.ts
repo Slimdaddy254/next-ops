@@ -1,5 +1,5 @@
 import { z } from "zod";
-import crypto from "crypto";
+import { createHash } from "crypto";
 
 // Rule schemas for Zod validation
 const allowlistRuleSchema = z.object({
@@ -48,7 +48,7 @@ export interface EvaluationResult {
  * Uses SHA-256 to hash userId + flagKey and converts to a number 0-99
  */
 export function stableHash(userId: string, flagKey: string): number {
-  const hash = crypto.createHash("sha256");
+  const hash = createHash("sha256");
   hash.update(`${userId}:${flagKey}`);
   const hex = hash.digest("hex");
   // Take first 8 characters and convert to number, then mod 100
