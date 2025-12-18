@@ -1,0 +1,15 @@
+#!/bin/sh
+
+# Pre-commit hook to run tests before committing
+echo "Running tests before commit..."
+
+npm run test:run
+
+if [ $? -ne 0 ]; then
+  echo "❌ Tests failed. Commit aborted."
+  echo "Fix the failing tests or use 'git commit --no-verify' to bypass this check."
+  exit 1
+fi
+
+echo "✅ All tests passed!"
+exit 0
