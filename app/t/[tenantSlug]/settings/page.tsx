@@ -79,7 +79,7 @@ export default async function SettingsPage() {
               </tr>
             </thead>
             <tbody>
-              {tenant.memberships.map((membership) => (
+              {tenant.memberships.map((membership: { id: string; role: string; user: { name: string; email: string } }) => (
                 <tr
                   key={membership.id}
                   className="border-b border-gray-700 last:border-0"

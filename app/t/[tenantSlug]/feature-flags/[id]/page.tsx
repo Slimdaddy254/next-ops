@@ -63,6 +63,7 @@ export default function FeatureFlagDetailPage() {
 
   useEffect(() => {
     fetchFlag();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [flagId]);
 
   const fetchFlag = async () => {

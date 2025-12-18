@@ -94,8 +94,8 @@ describe('Tenant Isolation', () => {
 
   describe('Cross-Tenant Data Leakage Prevention', () => {
     it('should not allow accessing another tenant data', () => {
-      const userTenantId = 'tenant-123';
-      const requestedTenantId = 'tenant-456';
+      const userTenantId: string = 'tenant-123';
+      const requestedTenantId: string = 'tenant-456';
 
       const isAuthorized = userTenantId === requestedTenantId;
       expect(isAuthorized).toBe(false);
