@@ -5,11 +5,11 @@ import { prisma } from "@/lib/prisma";
 
 export async function DELETE(
   request: NextRequest,
-  {
-    params,
-  }: { params: { id: string; attachmentId: string } }
+  { params }: { params: Promise<{ id: string; attachmentId: string }> }
 ) {
   try {
+    const { id, attachmentId } = await params;
+    
     const session = await getSession();
     if (!session || !session.user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -23,7 +23,7 @@ export async function DELETE(
     // Verify incident exists and user has access
     const incident = await prisma.incident.findFirst({
       where: {
-        id: params.id,
+        id: id,
         tenantId: tenantContext.tenantId,
       },
     });
@@ -38,8 +38,8 @@ export async function DELETE(
     // Verify attachment belongs to this incident and tenant
     const attachment = await prisma.attachment.findFirst({
       where: {
-        id: params.attachmentId,
-        incidentId: params.id,
+        id: attachmentId,
+        incidentId: id,
         tenantId: tenantContext.tenantId,
       },
     });
@@ -53,7 +53,7 @@ export async function DELETE(
 
     // Delete attachment record
     await prisma.attachment.delete({
-      where: { id: params.attachmentId },
+      where: { id: attachmentId },
     });
 
     return NextResponse.json({ success: true });
