@@ -106,7 +106,7 @@ export async function getUserTenantRole(tenantSlug: string) {
   }
 
   const membership = user.memberships.find(
-    (m) => m.tenant.slug === tenantSlug
+    (m: { tenant: { slug: string }; role: string }) => m.tenant.slug === tenantSlug
   );
 
   return membership?.role || null;

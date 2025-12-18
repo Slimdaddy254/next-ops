@@ -11,7 +11,6 @@ import {
   faPaperclip,
   faTrash,
   faSpinner,
-  faPlus,
   faStickyNote,
   faBolt,
   faExchangeAlt,
@@ -143,7 +142,7 @@ export default function IncidentDetailPage({
         if (data.type === "deleted") {
           setError("This incident has been deleted");
         }
-      } catch (e) {
+      } catch {
         // Ignore parse errors for heartbeats
       }
     };
@@ -155,7 +154,8 @@ export default function IncidentDetailPage({
     return () => {
       eventSource.close();
     };
-  }, [id, incident?.id]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id]);
 
   const getFileIcon = (fileType: string) => {
     if (fileType.includes("pdf")) return faFile;

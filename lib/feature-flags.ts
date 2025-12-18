@@ -12,16 +12,6 @@ const percentRolloutRuleSchema = z.object({
   percentage: z.number().min(0).max(100),
 });
 
-const andRuleSchema = z.object({
-  type: z.literal("AND"),
-  rules: z.array(z.lazy(() => ruleSchema)),
-});
-
-const orRuleSchema = z.object({
-  type: z.literal("OR"),
-  rules: z.array(z.lazy(() => ruleSchema)),
-});
-
 export const ruleSchema: z.ZodType<Rule> = z.discriminatedUnion("type", [
   allowlistRuleSchema,
   percentRolloutRuleSchema,
@@ -207,7 +197,7 @@ export function validateRule(condition: unknown): { valid: boolean; error?: stri
     return { valid: true };
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return { valid: false, error: error.errors[0].message };
+      return { valid: false, error: error.issues[0].message };
     }
     return { valid: false, error: "Invalid rule format" };
   }

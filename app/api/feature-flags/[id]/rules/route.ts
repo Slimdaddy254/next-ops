@@ -5,8 +5,10 @@ import { validateRule } from "@/lib/feature-flags";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
+type PrismaTransaction = Omit<typeof prisma, "$connect" | "$disconnect" | "$on" | "$transaction" | "$use" | "$extends">;
+
 const addRuleSchema = z.object({
-  condition: z.record(z.unknown()),
+  condition: z.record(z.string(), z.unknown()),
   order: z.number().optional(),
 });
 
@@ -36,7 +38,7 @@ export async function POST(
 
     if (!parsed.success) {
       return NextResponse.json(
-        { error: parsed.error.errors[0].message },
+        { error: parsed.error.issues[0].message },
         { status: 400 }
       );
     }
@@ -60,7 +62,7 @@ export async function POST(
       order = (maxOrder._max.order ?? -1) + 1;
     }
 
-    const rule = await prisma.$transaction(async (tx) => {
+    const rule = await prisma.$transaction(async (tx: PrismaTransaction) => {
       const newRule = await tx.rule.create({
         data: {
           flagId,

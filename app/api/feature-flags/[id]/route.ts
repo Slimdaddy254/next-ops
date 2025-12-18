@@ -1,19 +1,15 @@
 import { prisma } from "@/lib/prisma";
 import { getCurrentTenantContext } from "@/lib/tenant";
 import { getSession } from "@/lib/auth";
-import { validateRule } from "@/lib/feature-flags";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
+
+type PrismaTransaction = Omit<typeof prisma, "$connect" | "$disconnect" | "$on" | "$transaction" | "$use" | "$extends">;
 
 const updateFlagSchema = z.object({
   name: z.string().min(1).optional(),
   description: z.string().optional(),
   enabled: z.boolean().optional(),
-});
-
-const addRuleSchema = z.object({
-  condition: z.record(z.unknown()),
-  order: z.number().optional(),
 });
 
 export async function GET(
@@ -78,12 +74,12 @@ export async function PATCH(
 
     if (!parsed.success) {
       return NextResponse.json(
-        { error: parsed.error.errors[0].message },
+        { error: parsed.error.issues[0].message },
         { status: 400 }
       );
     }
 
-    const flag = await prisma.$transaction(async (tx) => {
+    const flag = await prisma.$transaction(async (tx: PrismaTransaction) => {
       const updated = await tx.featureFlag.update({
         where: { id },
         data: parsed.data,
@@ -141,7 +137,7 @@ export async function DELETE(
       return NextResponse.json({ error: "Feature flag not found" }, { status: 404 });
     }
 
-    await prisma.$transaction(async (tx) => {
+    await prisma.$transaction(async (tx: PrismaTransaction) => {
       await tx.featureFlag.delete({
         where: { id },
       });

@@ -24,15 +24,13 @@ const updateIncidentSchema = z.object({
   assigneeId: z.string().nullable().optional(),
 });
 
-const statusTransitionSchema = z.object({
-  incidentId: z.string(),
-  newStatus: z.enum(["OPEN", "MITIGATED", "RESOLVED"]),
-});
+type PrismaTransaction = Omit<typeof prisma, "$connect" | "$disconnect" | "$on" | "$transaction" | "$use" | "$extends">;
 
-const addNoteSchema = z.object({
-  incidentId: z.string(),
-  message: z.string().min(1, "Note cannot be empty"),
-});
+type IncidentRecord = {
+  id: string;
+  status: "OPEN" | "MITIGATED" | "RESOLVED";
+  assigneeId: string | null;
+};
 
 export type ActionState = {
   error?: string;
@@ -105,10 +103,10 @@ export async function createIncident(
 
     const parsed = createIncidentSchema.safeParse(rawData);
     if (!parsed.success) {
-      return { error: parsed.error.errors[0].message };
+      return { error: parsed.error.issues[0].message };
     }
 
-    const incident = await prisma.$transaction(async (tx) => {
+    const incident = await prisma.$transaction(async (tx: PrismaTransaction) => {
       // Create incident
       const newIncident = await tx.incident.create({
         data: {
@@ -198,7 +196,7 @@ export async function updateIncident(
 
     const parsed = updateIncidentSchema.safeParse(rawData);
     if (!parsed.success) {
-      return { error: parsed.error.errors[0].message };
+      return { error: parsed.error.issues[0].message };
     }
 
     // Filter out undefined values
@@ -206,7 +204,7 @@ export async function updateIncident(
       Object.entries(parsed.data).filter(([, v]) => v !== undefined)
     );
 
-    const updated = await prisma.$transaction(async (tx) => {
+    const updated = await prisma.$transaction(async (tx: PrismaTransaction) => {
       const incident = await tx.incident.update({
         where: { id: incidentId },
         data: updateData,
@@ -270,7 +268,7 @@ export async function changeIncidentStatus(
       };
     }
 
-    const updated = await prisma.$transaction(async (tx) => {
+    const updated = await prisma.$transaction(async (tx: PrismaTransaction) => {
       // Update status
       const incident = await tx.incident.update({
         where: { id: incidentId },
@@ -443,7 +441,7 @@ export async function assignIncident(
       }
     }
 
-    const updated = await prisma.$transaction(async (tx) => {
+    const updated = await prisma.$transaction(async (tx: PrismaTransaction) => {
       const incident = await tx.incident.update({
         where: { id: incidentId },
         data: { assigneeId },
@@ -513,7 +511,7 @@ export async function bulkUpdateStatus(
     });
 
     const invalidTransitions = incidents.filter(
-      (i) => !isValidTransition(i.status, newStatus)
+      (i: IncidentRecord) => !isValidTransition(i.status, newStatus)
     );
 
     if (invalidTransitions.length > 0) {
@@ -522,7 +520,7 @@ export async function bulkUpdateStatus(
       };
     }
 
-    await prisma.$transaction(async (tx) => {
+    await prisma.$transaction(async (tx: PrismaTransaction) => {
       for (const incident of incidents) {
         await tx.incident.update({
           where: { id: incident.id },
@@ -593,7 +591,7 @@ export async function bulkAssign(
       where: { id: { in: incidentIds }, tenantId: tenant.id },
     });
 
-    await prisma.$transaction(async (tx) => {
+    await prisma.$transaction(async (tx: PrismaTransaction) => {
       for (const incident of incidents) {
         await tx.incident.update({
           where: { id: incident.id },

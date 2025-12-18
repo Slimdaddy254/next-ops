@@ -1,9 +1,10 @@
 import { prisma } from "@/lib/prisma";
 import { getCurrentTenantContext } from "@/lib/tenant";
 import { getSession } from "@/lib/auth";
-import { validateRule } from "@/lib/feature-flags";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
+
+type PrismaTransaction = Omit<typeof prisma, "$connect" | "$disconnect" | "$on" | "$transaction" | "$use" | "$extends">;
 
 const createFlagSchema = z.object({
   key: z.string().min(1).regex(/^[a-z0-9_-]+$/, "Key must be lowercase alphanumeric with hyphens/underscores"),
@@ -80,7 +81,7 @@ export async function POST(request: NextRequest) {
 
     if (!parsed.success) {
       return NextResponse.json(
-        { error: parsed.error.errors[0].message },
+        { error: parsed.error.issues[0].message },
         { status: 400 }
       );
     }
@@ -101,7 +102,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const flag = await prisma.$transaction(async (tx) => {
+    const flag = await prisma.$transaction(async (tx: PrismaTransaction) => {
       const newFlag = await tx.featureFlag.create({
         data: {
           tenantId: tenantContext.tenantId,

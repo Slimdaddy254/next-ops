@@ -1,10 +1,21 @@
 import { redirect } from "next/navigation";
 import { headers } from "next/headers";
 import Link from "next/link";
-import { auth, getCurrentUser } from "@/auth";
+import { auth } from "@/auth";
 import UserMenu from "@/app/components/UserMenu";
 import Sidebar from "@/app/components/Sidebar";
 import { prisma } from "@/lib/prisma";
+
+type Membership = {
+  tenant: { id: string; name: string; slug: string };
+  role: string;
+};
+
+type TenantRecord = {
+  id: string;
+  name: string;
+  slug: string;
+};
 
 interface TenantLayoutProps {
   children: React.ReactNode;
@@ -37,7 +48,7 @@ export default async function TenantLayout({ children, params }: TenantLayoutPro
     });
 
     if (user) {
-      tenants = user.memberships.map((m) => ({
+      tenants = user.memberships.map((m: Membership) => ({
         id: m.tenant.id,
         name: m.tenant.name,
         slug: m.tenant.slug,
@@ -58,7 +69,7 @@ export default async function TenantLayout({ children, params }: TenantLayoutPro
     };
     // Get all tenants for dev mode
     const allTenants = await prisma.tenant.findMany();
-    tenants = allTenants.map((t) => ({
+    tenants = allTenants.map((t: TenantRecord) => ({
       id: t.id,
       name: t.name,
       slug: t.slug,
