@@ -50,16 +50,16 @@ interface Incident {
 }
 
 const severityColors = {
-  SEV1: "bg-red-100 text-red-800",
-  SEV2: "bg-orange-100 text-orange-800",
-  SEV3: "bg-yellow-100 text-yellow-800",
-  SEV4: "bg-blue-100 text-blue-800",
+  SEV1: "bg-red-500/20 text-red-400 border border-red-500/30",
+  SEV2: "bg-orange-500/20 text-orange-400 border border-orange-500/30",
+  SEV3: "bg-yellow-500/20 text-yellow-400 border border-yellow-500/30",
+  SEV4: "bg-blue-500/20 text-blue-400 border border-blue-500/30",
 };
 
 const statusColors = {
-  OPEN: "bg-red-50 text-red-700 border-l-red-500",
-  MITIGATED: "bg-yellow-50 text-yellow-700 border-l-yellow-500",
-  RESOLVED: "bg-green-50 text-green-700 border-l-green-500",
+  OPEN: "bg-red-500/20 text-red-300 border-l-red-500",
+  MITIGATED: "bg-yellow-500/20 text-yellow-300 border-l-yellow-500",
+  RESOLVED: "bg-green-500/20 text-green-300 border-l-green-500",
 };
 
 const VALID_TRANSITIONS: Record<string, string[]> = {
@@ -319,35 +319,35 @@ export default function IncidentDetailPage({
     }
   };
 
-  if (loading) return <div className="text-center py-8">Loading...</div>;
-  if (error) return <div className="text-center py-8 text-red-500">Error: {error}</div>;
-  if (!incident) return <div className="text-center py-8">Not found</div>;
+  if (loading) return <div className="text-center py-8 text-gray-400">Loading...</div>;
+  if (error) return <div className="text-center py-8 text-red-400">Error: {error}</div>;
+  if (!incident) return <div className="text-center py-8 text-gray-400">Not found</div>;
 
   return (
-    <div className="min-h-screen bg-gray-50 p-8">
+    <div className="min-h-screen p-8">
       <div className="max-w-4xl mx-auto">
         <div className="flex justify-between items-center mb-4">
           <Link
             href={`/t/${tenantSlug}/incidents`}
-            className="text-blue-600 hover:text-blue-700"
+            className="text-blue-400 hover:text-blue-300"
           >
             ← Back to Incidents
           </Link>
           <div className="flex items-center gap-2">
             <span
               className={`w-2 h-2 rounded-full ${
-                isConnected ? "bg-green-500" : "bg-gray-400"
+                isConnected ? "bg-green-500" : "bg-gray-500"
               }`}
             />
-            <span className="text-sm text-gray-500">
+            <span className="text-sm text-gray-400">
               {isConnected ? "Live" : "Connecting..."}
             </span>
           </div>
         </div>
 
-        <div className={`bg-white rounded-lg shadow p-8 mb-8 border-l-4 ${statusColors[incident.status]}`}>
+        <div className={`bg-gray-800 border border-gray-700 rounded-lg shadow-lg p-8 mb-8 border-l-4 ${statusColors[incident.status]}`}>
           <div className="flex justify-between items-start mb-6">
-            <h1 className="text-3xl font-bold text-gray-900">{incident.title}</h1>
+            <h1 className="text-3xl font-bold text-white">{incident.title}</h1>
             <div className="flex gap-2">
               <span
                 className={`px-4 py-2 rounded-full font-medium ${
@@ -357,8 +357,10 @@ export default function IncidentDetailPage({
                 {incident.severity}
               </span>
               <span
-                className={`px-4 py-2 rounded-full font-medium ${
-                  statusColors[incident.status]
+                className={`px-4 py-2 rounded-full font-medium border ${
+                  incident.status === 'OPEN' ? 'bg-red-500/20 text-red-300 border-red-500/30' :
+                  incident.status === 'MITIGATED' ? 'bg-yellow-500/20 text-yellow-300 border-yellow-500/30' :
+                  'bg-green-500/20 text-green-300 border-green-500/30'
                 }`}
               >
                 {incident.status}
@@ -368,21 +370,21 @@ export default function IncidentDetailPage({
 
           <div className="grid grid-cols-2 md:grid-cols-4 gap-6 text-sm">
             <div>
-              <p className="text-gray-600 font-medium">Service</p>
-              <p className="text-gray-900">{incident.service}</p>
+              <p className="text-gray-400 font-medium">Service</p>
+              <p className="text-white">{incident.service}</p>
             </div>
             <div>
-              <p className="text-gray-600 font-medium">Environment</p>
-              <p className="text-gray-900">{incident.environment}</p>
+              <p className="text-gray-400 font-medium">Environment</p>
+              <p className="text-white">{incident.environment}</p>
             </div>
             <div>
-              <p className="text-gray-600 font-medium">Created by</p>
-              <p className="text-gray-900">{incident.createdBy.name}</p>
+              <p className="text-gray-400 font-medium">Created by</p>
+              <p className="text-white">{incident.createdBy.name}</p>
             </div>
             {incident.assignee && (
               <div>
-                <p className="text-gray-600 font-medium">Assigned to</p>
-                <p className="text-gray-900">{incident.assignee.name}</p>
+                <p className="text-gray-400 font-medium">Assigned to</p>
+                <p className="text-white">{incident.assignee.name}</p>
               </div>
             )}
           </div>
@@ -392,7 +394,7 @@ export default function IncidentDetailPage({
               {incident.tags.map((tag) => (
                 <span
                   key={tag}
-                  className="px-3 py-1 bg-gray-100 text-gray-700 text-sm rounded"
+                  className="px-3 py-1 bg-gray-700 text-gray-300 text-sm rounded border border-gray-600"
                 >
                   {tag}
                 </span>
@@ -403,15 +405,15 @@ export default function IncidentDetailPage({
 
         {/* Status Transitions */}
         {VALID_TRANSITIONS[incident.status]?.length > 0 && (
-          <div className="bg-white rounded-lg shadow p-8 mb-8">
-            <h2 className="text-xl font-bold text-gray-900 mb-4">
+          <div className="bg-gray-800 border border-gray-700 rounded-lg shadow-lg p-8 mb-8">
+            <h2 className="text-xl font-bold text-white mb-4">
               Update Status
             </h2>
             <textarea
               value={transitionMessage}
               onChange={(e) => setTransitionMessage(e.target.value)}
               placeholder="Add a note about this status change (optional)"
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg mb-4"
+              className="w-full px-4 py-2 bg-gray-700 border border-gray-600 text-white placeholder-gray-400 rounded-lg mb-4 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               rows={3}
             />
             <div className="flex gap-3">
@@ -420,7 +422,7 @@ export default function IncidentDetailPage({
                   key={status}
                   onClick={() => handleStatusTransition(status)}
                   disabled={updating}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400"
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-600 disabled:text-gray-400 transition-colors"
                 >
                   {updating ? "Updating..." : `Mark as ${status}`}
                 </button>
@@ -430,15 +432,15 @@ export default function IncidentDetailPage({
         )}
 
         {/* Attachments */}
-        <div className="bg-white rounded-lg shadow p-8 mb-8">
-          <h2 className="text-xl font-bold text-gray-900 mb-6">Attachments</h2>
+        <div className="bg-gray-800 border border-gray-700 rounded-lg shadow-lg p-8 mb-8">
+          <h2 className="text-xl font-bold text-white mb-6">Attachments</h2>
 
           {/* Upload Area */}
           <div
             className={`border-2 border-dashed rounded-lg p-8 text-center mb-6 transition-colors ${
               dragActive
-                ? "border-blue-500 bg-blue-50"
-                : "border-gray-300 bg-gray-50"
+                ? "border-blue-500 bg-blue-500/10"
+                : "border-gray-600 bg-gray-700/50"
             }`}
             onDragEnter={() => setDragActive(true)}
             onDragLeave={() => setDragActive(false)}
@@ -450,10 +452,10 @@ export default function IncidentDetailPage({
             onDragOver={(e) => e.preventDefault()}
           >
             <label className="cursor-pointer">
-              <p className="text-gray-600 font-semibold mb-2">
+              <p className="text-gray-300 font-semibold mb-2">
                 Drag files here or click to upload
               </p>
-              <p className="text-sm text-gray-500">
+              <p className="text-sm text-gray-400">
                 Max 10MB per file (PDF, Word, Excel, Images)
               </p>
               <input
@@ -468,24 +470,24 @@ export default function IncidentDetailPage({
 
           {/* Attachments List */}
           {(incident.attachments || []).length === 0 ? (
-            <p className="text-gray-500">No attachments yet</p>
+            <p className="text-gray-400">No attachments yet</p>
           ) : (
             <div className="space-y-2">
               {(incident.attachments || []).map((attachment) => (
                 <div
                   key={attachment.id}
-                  className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100"
+                  className="flex items-center justify-between p-4 bg-gray-700 border border-gray-600 rounded-lg hover:bg-gray-600 transition-colors"
                 >
                   <div className="flex items-center gap-3 flex-1">
                     <FontAwesomeIcon
                       icon={getFileIcon(attachment.fileType)}
-                      className="text-xl text-blue-600"
+                      className="text-xl text-blue-400"
                     />
                     <div className="flex-1">
-                      <p className="font-semibold text-gray-900">
+                      <p className="font-semibold text-white">
                         {attachment.fileName}
                       </p>
-                      <p className="text-sm text-gray-600">
+                      <p className="text-sm text-gray-400">
                         {(attachment.fileSize / 1024).toFixed(2)} KB •{" "}
                         {attachment.uploadedBy.name} •{" "}
                         {new Date(attachment.uploadedAt).toLocaleDateString()}
@@ -494,7 +496,7 @@ export default function IncidentDetailPage({
                   </div>
                   <button
                     onClick={() => handleDeleteAttachment(attachment.id)}
-                    className="ml-4 text-red-600 hover:text-red-700"
+                    className="ml-4 text-red-400 hover:text-red-300 transition-colors"
                     title="Delete attachment"
                   >
                     <FontAwesomeIcon icon={faTrash} className="text-lg" />
@@ -506,8 +508,8 @@ export default function IncidentDetailPage({
         </div>
 
         {/* Timeline */}
-        <div className="bg-white rounded-lg shadow p-8">
-          <h2 className="text-xl font-bold text-gray-900 mb-6">Timeline</h2>
+        <div className="bg-gray-800 border border-gray-700 rounded-lg shadow-lg p-8">
+          <h2 className="text-xl font-bold text-white mb-6">Timeline</h2>
           
           {/* Add Note/Action Forms */}
           <div className="mb-8 space-y-4">
@@ -517,13 +519,13 @@ export default function IncidentDetailPage({
                 value={noteInput}
                 onChange={(e) => setNoteInput(e.target.value)}
                 placeholder="Add a note..."
-                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="flex-1 px-4 py-2 bg-gray-700 border border-gray-600 text-white placeholder-gray-400 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 onKeyDown={(e) => e.key === "Enter" && handleAddNote()}
               />
               <button
                 onClick={handleAddNote}
                 disabled={addingNote || !noteInput.trim()}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400 flex items-center gap-2"
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-600 disabled:text-gray-400 flex items-center gap-2 transition-colors"
               >
                 {addingNote ? (
                   <FontAwesomeIcon icon={faSpinner} className="animate-spin" />
@@ -539,13 +541,13 @@ export default function IncidentDetailPage({
                 value={actionInput}
                 onChange={(e) => setActionInput(e.target.value)}
                 placeholder="Log an action taken..."
-                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="flex-1 px-4 py-2 bg-gray-700 border border-gray-600 text-white placeholder-gray-400 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 onKeyDown={(e) => e.key === "Enter" && handleAddAction()}
               />
               <button
                 onClick={handleAddAction}
                 disabled={addingAction || !actionInput.trim()}
-                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:bg-gray-400 flex items-center gap-2"
+                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:bg-gray-600 disabled:text-gray-400 flex items-center gap-2 transition-colors"
               >
                 {addingAction ? (
                   <FontAwesomeIcon icon={faSpinner} className="animate-spin" />
@@ -559,18 +561,18 @@ export default function IncidentDetailPage({
 
           <div className="space-y-4">
             {incident.timeline.length === 0 ? (
-              <p className="text-gray-500">No timeline events yet</p>
+              <p className="text-gray-400">No timeline events yet</p>
             ) : (
               incident.timeline.map((event) => (
-                <div key={event.id} className="flex gap-4 p-4 bg-gray-50 rounded-lg">
+                <div key={event.id} className="flex gap-4 p-4 bg-gray-700 border border-gray-600 rounded-lg">
                   <div className="flex flex-col items-center">
                     <div
                       className={`w-8 h-8 rounded-full flex items-center justify-center ${
                         event.type === "STATUS_CHANGE"
-                          ? "bg-blue-100 text-blue-600"
+                          ? "bg-blue-500/20 text-blue-400 border border-blue-500/30"
                           : event.type === "ACTION"
-                          ? "bg-green-100 text-green-600"
-                          : "bg-yellow-100 text-yellow-600"
+                          ? "bg-green-500/20 text-green-400 border border-green-500/30"
+                          : "bg-yellow-500/20 text-yellow-400 border border-yellow-500/30"
                       }`}
                     >
                       <FontAwesomeIcon
@@ -587,14 +589,14 @@ export default function IncidentDetailPage({
                   </div>
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-1">
-                      <span className="text-xs font-medium px-2 py-0.5 rounded bg-gray-200 text-gray-700">
+                      <span className="text-xs font-medium px-2 py-0.5 rounded bg-gray-600 text-gray-300 border border-gray-500">
                         {event.type.replace("_", " ")}
                       </span>
-                      <span className="text-sm text-gray-500">
+                      <span className="text-sm text-gray-400">
                         {event.createdBy.name} • {new Date(event.createdAt).toLocaleString()}
                       </span>
                     </div>
-                    <p className="text-gray-900">
+                    <p className="text-white">
                       {event.type === "STATUS_CHANGE"
                         ? `Status changed from ${event.data?.from || "New"} to ${event.data?.to}`
                         : event.message || "No message"}

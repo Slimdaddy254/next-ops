@@ -8,8 +8,10 @@ type PrismaTransaction = Omit<typeof prisma, "$connect" | "$disconnect" | "$on" 
 
 const updateFlagSchema = z.object({
   name: z.string().min(1).optional(),
+  key: z.string().min(1).optional(),
   description: z.string().optional(),
   enabled: z.boolean().optional(),
+  rolloutPercentage: z.number().min(0).max(100).optional(),
 });
 
 export async function GET(

@@ -66,30 +66,30 @@ export default function NewIncidentPage({
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 p-8">
+    <div className="min-h-screen p-8">
       <div className="max-w-2xl mx-auto">
         <div className="mb-8">
           <Link
             href={`/t/${tenantSlug}/incidents`}
-            className="text-blue-600 hover:text-blue-700 mb-4 inline-block"
+            className="text-blue-400 hover:text-blue-300 mb-4 inline-block transition-colors"
           >
             ← Back to Incidents
           </Link>
-          <h1 className="text-3xl font-bold text-gray-900">Create Incident</h1>
+          <h1 className="text-3xl font-bold text-white">Create Incident</h1>
         </div>
 
         <form
           onSubmit={handleSubmit}
-          className="bg-white rounded-lg shadow p-8"
+          className="bg-gray-800 border border-gray-700 rounded-lg shadow-lg p-8"
         >
           {error && (
-            <div className="mb-6 p-4 bg-red-50 text-red-700 rounded-lg">
+            <div className="mb-6 p-4 bg-red-500/20 border border-red-500/30 text-red-300 rounded-lg">
               {error}
             </div>
           )}
 
           <div className="mb-6">
-            <label className="block text-sm font-medium text-gray-900 mb-2">
+            <label className="block text-sm font-medium text-gray-300 mb-2">
               Title *
             </label>
             <input
@@ -100,13 +100,13 @@ export default function NewIncidentPage({
                 setFormData({ ...formData, title: e.target.value })
               }
               placeholder="Brief description of the incident"
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-4 py-2 bg-gray-700 border border-gray-600 text-white placeholder-gray-400 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
             <div>
-              <label className="block text-sm font-medium text-gray-900 mb-2">
+              <label className="block text-sm font-medium text-gray-300 mb-2">
                 Severity *
               </label>
               <select
@@ -117,7 +117,7 @@ export default function NewIncidentPage({
                     severity: e.target.value as "SEV1" | "SEV2" | "SEV3" | "SEV4",
                   })
                 }
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-4 py-2 bg-gray-700 border border-gray-600 text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               >
                 <option value="SEV1">SEV1 - Critical</option>
                 <option value="SEV2">SEV2 - High</option>
@@ -127,7 +127,7 @@ export default function NewIncidentPage({
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-900 mb-2">
+              <label className="block text-sm font-medium text-gray-300 mb-2">
                 Environment *
               </label>
               <select
@@ -138,7 +138,7 @@ export default function NewIncidentPage({
                     environment: e.target.value as "DEV" | "STAGING" | "PROD",
                   })
                 }
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-4 py-2 bg-gray-700 border border-gray-600 text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               >
                 <option value="PROD">Production</option>
                 <option value="STAGING">Staging</option>
@@ -148,7 +148,7 @@ export default function NewIncidentPage({
           </div>
 
           <div className="mb-6">
-            <label className="block text-sm font-medium text-gray-900 mb-2">
+            <label className="block text-sm font-medium text-gray-300 mb-2">
               Service *
             </label>
             <input
@@ -159,12 +159,12 @@ export default function NewIncidentPage({
                 setFormData({ ...formData, service: e.target.value })
               }
               placeholder="e.g., API, Database, Cache"
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-4 py-2 bg-gray-700 border border-gray-600 text-white placeholder-gray-400 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
           </div>
 
           <div className="mb-6">
-            <label className="block text-sm font-medium text-gray-900 mb-2">
+            <label className="block text-sm font-medium text-gray-300 mb-2">
               Tags
             </label>
             <input
@@ -172,9 +172,9 @@ export default function NewIncidentPage({
               value={formData.tags}
               onChange={(e) => setFormData({ ...formData, tags: e.target.value })}
               placeholder="Comma-separated tags (e.g., database, timeout, critical)"
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-4 py-2 bg-gray-700 border border-gray-600 text-white placeholder-gray-400 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
-            <p className="mt-1 text-sm text-gray-500">
+            <p className="mt-1 text-sm text-gray-400">
               Separate multiple tags with commas
             </p>
           </div>
@@ -183,13 +183,13 @@ export default function NewIncidentPage({
             <button
               type="submit"
               disabled={loading}
-              className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400"
+              className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-600 disabled:text-gray-400 transition-colors"
             >
               {loading ? "Creating..." : "Create Incident"}
             </button>
             <Link
               href={`/t/${tenantSlug}/incidents`}
-              className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+              className="px-6 py-2 bg-gray-700 border border-gray-600 text-gray-300 rounded-lg hover:bg-gray-600 transition-colors"
             >
               Cancel
             </Link>

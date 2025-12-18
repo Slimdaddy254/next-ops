@@ -1,0 +1,394 @@
+"use client";
+
+import { useParams } from "next/navigation";
+import { useEffect, useState } from "react";
+import Link from "next/link";
+
+interface FeatureFlag {
+  id: string;
+  name: string;
+  key: string;
+  description: string | null;
+  enabled: boolean;
+  rolloutPercentage: number;
+  createdAt: string;
+  updatedAt: string;
+  rules: Rule[];
+}
+
+interface Rule {
+  id: string;
+  type: "ALLOWLIST" | "PERCENT_ROLLOUT" | "AND" | "OR";
+  condition: Record<string, unknown>;
+  order: number;
+}
+
+export default function FeatureFlagDetailPage() {
+  const params = useParams();
+  const tenantSlug = params.tenantSlug as string;
+  const flagId = params.id as string;
+
+  const [flag, setFlag] = useState<FeatureFlag | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  // Form state
+  const [name, setName] = useState("");
+  const [key, setKey] = useState("");
+  const [description, setDescription] = useState("");
+  const [enabled, setEnabled] = useState(false);
+  const [rolloutPercentage, setRolloutPercentage] = useState(0);
+  const [rules, setRules] = useState<Rule[]>([]);
+
+  // New rule form state
+  const [showAddRule, setShowAddRule] = useState(false);
+  const [newRuleType, setNewRuleType] = useState<"ALLOWLIST" | "PERCENT_ROLLOUT">("ALLOWLIST");
+  const [newRuleUsers, setNewRuleUsers] = useState("");
+  const [newRulePercent, setNewRulePercent] = useState(50);
+
+  useEffect(() => {
+    fetchFlag();
+  }, [flagId]);
+
+  const fetchFlag = async () => {
+    try {
+      setLoading(true);
+      const response = await fetch(`/api/feature-flags/${flagId}`);
+      if (!response.ok) throw new Error("Failed to fetch feature flag");
+      const data = await response.json();
+      setFlag(data);
+      setName(data.name);
+      setKey(data.key);
+      setDescription(data.description || "");
+      setEnabled(data.enabled);
+      setRolloutPercentage(data.rolloutPercentage);
+      setRules(data.rules || []);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load flag");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSave = async () => {
+    try {
+      setSaving(true);
+      const response = await fetch(`/api/feature-flags/${flagId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name,
+          key,
+          description,
+          enabled,
+          rolloutPercentage,
+        }),
+      });
+
+      if (!response.ok) throw new Error("Failed to update feature flag");
+      const updated = await response.json();
+      setFlag(updated);
+      alert("Feature flag updated successfully");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to save");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleAddRule = async () => {
+    let condition: Record<string, unknown>;
+    
+    if (newRuleType === "ALLOWLIST") {
+      const userIds = newRuleUsers.split(",").map(u => u.trim()).filter(Boolean);
+      if (userIds.length === 0) {
+        alert("Please enter at least one user ID");
+        return;
+      }
+      condition = { type: "ALLOWLIST", userIds };
+    } else {
+      condition = { type: "PERCENT_ROLLOUT", percentage: newRulePercent };
+    }
+
+    try {
+      const response = await fetch(`/api/feature-flags/${flagId}/rules`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ condition }),
+      });
+
+      if (!response.ok) throw new Error("Failed to add rule");
+      const newRule = await response.json();
+      setRules([...rules, newRule]);
+      setNewRuleUsers("");
+      setNewRulePercent(50);
+      setShowAddRule(false);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to add rule");
+    }
+  };
+
+  const handleDeleteRule = async (ruleId: string) => {
+    if (!confirm("Are you sure you want to delete this rule?")) return;
+
+    try {
+      const response = await fetch(`/api/feature-flags/${flagId}/rules/${ruleId}`, {
+        method: "DELETE",
+      });
+
+      if (!response.ok) throw new Error("Failed to delete rule");
+      setRules(rules.filter((r) => r.id !== ruleId));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to delete rule");
+    }
+  };
+
+  const formatRuleDisplay = (rule: Rule) => {
+    const cond = rule.condition as { type: string; userIds?: string[]; percentage?: number };
+    
+    if (rule.type === "ALLOWLIST") {
+      const userIds = cond.userIds || [];
+      return `Allow users: ${userIds.join(", ")}`;
+    } else if (rule.type === "PERCENT_ROLLOUT") {
+      return `${cond.percentage || 0}% rollout`;
+    }
+    return JSON.stringify(rule.condition);
+  };
+
+  if (loading) {
+    return (
+      <div className="text-center py-8 text-gray-400">Loading feature flag...</div>
+    );
+  }
+
+  if (error && !flag) {
+    return <div className="text-center py-8 text-red-400">Error: {error}</div>;
+  }
+
+  if (!flag) {
+    return <div className="text-center py-8 text-gray-400">Feature flag not found</div>;
+  }
+
+  return (
+    <div className="min-h-screen p-8">
+      <div className="max-w-4xl mx-auto">
+        {/* Header */}
+        <div className="mb-6">
+          <Link
+            href={`/t/${tenantSlug}/feature-flags`}
+            className="text-blue-400 hover:text-blue-300 mb-4 inline-block"
+          >
+            ← Back to Feature Flags
+          </Link>
+          <h1 className="text-3xl font-bold text-white">Edit Feature Flag</h1>
+        </div>
+
+        {error && (
+          <div className="mb-6 p-4 bg-red-500/20 border border-red-500/30 text-red-400 rounded-lg">
+            {error}
+          </div>
+        )}
+
+        {/* Main Settings */}
+        <div className="bg-gray-800 border border-gray-700 rounded-lg shadow-lg p-8 mb-6">
+          <h2 className="text-xl font-semibold text-white mb-6">Basic Settings</h2>
+
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                Name
+              </label>
+              <input
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="Feature name"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                Key
+              </label>
+              <input
+                type="text"
+                value={key}
+                onChange={(e) => setKey(e.target.value)}
+                className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono"
+                placeholder="feature_key"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                Description
+              </label>
+              <textarea
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                rows={3}
+                placeholder="Describe this feature flag..."
+              />
+            </div>
+
+            <div className="flex items-center gap-4">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={enabled}
+                  onChange={(e) => setEnabled(e.target.checked)}
+                  className="w-5 h-5 rounded bg-gray-700 border-gray-600 text-blue-500 focus:ring-2 focus:ring-blue-500"
+                />
+                <span className="text-gray-300">Enabled</span>
+              </label>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                Rollout Percentage: {rolloutPercentage}%
+              </label>
+              <input
+                type="range"
+                min="0"
+                max="100"
+                value={rolloutPercentage}
+                onChange={(e) => setRolloutPercentage(parseInt(e.target.value))}
+                className="w-full"
+              />
+              <div className="flex justify-between text-xs text-gray-500 mt-1">
+                <span>0%</span>
+                <span>50%</span>
+                <span>100%</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-6 flex gap-3">
+            <button
+              onClick={handleSave}
+              disabled={saving}
+              className="px-6 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 text-white rounded-lg transition-colors"
+            >
+              {saving ? "Saving..." : "Save Changes"}
+            </button>
+            <button
+              onClick={fetchFlag}
+              className="px-6 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors"
+            >
+              Reset
+            </button>
+          </div>
+        </div>
+
+        {/* Targeting Rules */}
+        <div className="bg-gray-800 border border-gray-700 rounded-lg shadow-lg p-8">
+          <div className="flex justify-between items-center mb-6">
+            <h2 className="text-xl font-semibold text-white">Targeting Rules</h2>
+            <button
+              onClick={() => setShowAddRule(!showAddRule)}
+              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+            >
+              {showAddRule ? "Cancel" : "+ Add Rule"}
+            </button>
+          </div>
+
+          {showAddRule && (
+            <div className="mb-6 p-4 bg-gray-700/50 border border-gray-600 rounded-lg">
+              <h3 className="text-sm font-medium text-gray-300 mb-4">New Rule</h3>
+              
+              <div className="mb-4">
+                <label className="block text-xs text-gray-400 mb-2">Rule Type</label>
+                <select
+                  value={newRuleType}
+                  onChange={(e) => setNewRuleType(e.target.value as "ALLOWLIST" | "PERCENT_ROLLOUT")}
+                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white"
+                >
+                  <option value="ALLOWLIST">Allow Specific Users</option>
+                  <option value="PERCENT_ROLLOUT">Percentage Rollout</option>
+                </select>
+              </div>
+
+              {newRuleType === "ALLOWLIST" ? (
+                <div className="mb-4">
+                  <label className="block text-xs text-gray-400 mb-1">
+                    User IDs (comma-separated)
+                  </label>
+                  <input
+                    type="text"
+                    value={newRuleUsers}
+                    onChange={(e) => setNewRuleUsers(e.target.value)}
+                    className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white text-sm"
+                    placeholder="user1, user2, user3"
+                  />
+                </div>
+              ) : (
+                <div className="mb-4">
+                  <label className="block text-xs text-gray-400 mb-1">
+                    Rollout Percentage: {newRulePercent}%
+                  </label>
+                  <input
+                    type="range"
+                    min="0"
+                    max="100"
+                    value={newRulePercent}
+                    onChange={(e) => setNewRulePercent(parseInt(e.target.value))}
+                    className="w-full"
+                  />
+                  <div className="flex justify-between text-xs text-gray-500 mt-1">
+                    <span>0%</span>
+                    <span>50%</span>
+                    <span>100%</span>
+                  </div>
+                </div>
+              )}
+
+              <button
+                onClick={handleAddRule}
+                className="w-full px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded transition-colors"
+              >
+                Add Rule
+              </button>
+            </div>
+          )}
+
+          {rules.length === 0 ? (
+            <div className="text-center py-8 text-gray-500">
+              No targeting rules. Add rules to control who sees this feature.
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {rules.map((rule) => (
+                <div
+                  key={rule.id}
+                  className="flex items-center justify-between p-4 bg-gray-700 border border-gray-600 rounded-lg"
+                >
+                  <div className="flex items-center gap-4 text-sm">
+                    <span className="px-2 py-1 bg-blue-500/20 text-blue-400 border border-blue-500/30 rounded text-xs font-medium">
+                      {rule.type}
+                    </span>
+                    <span className="text-white">{formatRuleDisplay(rule)}</span>
+                  </div>
+                  <button
+                    onClick={() => handleDeleteRule(rule.id)}
+                    className="px-3 py-1 bg-red-600/20 hover:bg-red-600/30 text-red-400 border border-red-500/30 rounded transition-colors"
+                  >
+                    Delete
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Metadata */}
+        <div className="mt-6 text-sm text-gray-500">
+          <p>Created: {new Date(flag.createdAt).toLocaleString()}</p>
+          <p>Last Updated: {new Date(flag.updatedAt).toLocaleString()}</p>
+        </div>
+      </div>
+    </div>
+  );
+}
