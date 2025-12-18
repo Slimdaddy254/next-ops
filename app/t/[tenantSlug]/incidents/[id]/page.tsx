@@ -3,6 +3,15 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 
+interface Attachment {
+  id: string;
+  fileName: string;
+  fileType: string;
+  fileSize: number;
+  uploadedAt: string;
+  uploadedBy: { id: string; name: string };
+}
+
 interface TimelineEvent {
   id: string;
   type: "NOTE" | "ACTION" | "STATUS_CHANGE";
@@ -24,6 +33,7 @@ interface Incident {
   createdBy: { id: string; name: string; email: string };
   assignee?: { id: string; name: string; email: string } | null;
   timeline: TimelineEvent[];
+  attachments?: Attachment[];
 }
 
 const severityColors = {
@@ -39,6 +49,12 @@ const statusColors = {
   RESOLVED: "bg-green-50 text-green-700 border-l-green-500",
 };
 
+const VALID_TRANSITIONS: Record<string, string[]> = {
+  OPEN: ["MITIGATED", "RESOLVED"],
+  MITIGATED: ["RESOLVED", "OPEN"],
+  RESOLVED: ["OPEN"],
+};
+
 export default function IncidentDetailPage({
   params,
 }: {
@@ -49,6 +65,8 @@ export default function IncidentDetailPage({
   const [error, setError] = useState<string | null>(null);
   const [updating, setUpdating] = useState(false);
   const [transitionMessage, setTransitionMessage] = useState("");
+  const [uploading, setUploading] = useState(false);
+  const [dragActive, setDragActive] = useState(false);
 
   useEffect(() => {
     const fetchIncident = async () => {
@@ -71,6 +89,16 @@ export default function IncidentDetailPage({
     fetchIncident();
   }, [params.id]);
 
+  const getFileIcon = (fileType: string) => {
+    if (fileType.includes("pdf")) return "📄";
+    if (fileType.includes("word") || fileType.includes("document"))
+      return "📝";
+    if (fileType.includes("sheet") || fileType.includes("excel"))
+      return "📊";
+    if (fileType.includes("image")) return "🖼️";
+    return "📎";
+  };
+
   const handleStatusTransition = async (newStatus: string) => {
     if (!incident) return;
 
@@ -86,8 +114,7 @@ export default function IncidentDetailPage({
       });
 
       if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.error || "Failed to update incident");
+        throw new Error("Failed to update status");
       }
 
       const updated = await response.json();
@@ -95,24 +122,80 @@ export default function IncidentDetailPage({
       setTransitionMessage("");
       setError(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unknown error");
+      setError(err instanceof Error ? err.message : "Failed to update status");
     } finally {
       setUpdating(false);
+    }
+  };
+
+  const handleFileUpload = async (files: FileList | null) => {
+    if (!files || files.length === 0 || !incident) return;
+
+    setUploading(true);
+    try {
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        const formData = new FormData();
+        formData.append("file", file);
+
+        const response = await fetch(
+          `/api/incidents/${params.id}/attachments`,
+          {
+            method: "POST",
+            body: formData,
+          }
+        );
+
+        if (!response.ok) {
+          throw new Error(`Failed to upload ${file.name}`);
+        }
+      }
+
+      // Refresh incident to get updated attachments
+      const refreshResponse = await fetch(`/api/incidents/${params.id}`);
+      if (refreshResponse.ok) {
+        const updated = await refreshResponse.json();
+        setIncident(updated);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to upload files");
+    } finally {
+      setUploading(false);
+      setDragActive(false);
+    }
+  };
+
+  const handleDeleteAttachment = async (attachmentId: string) => {
+    if (!incident) return;
+
+    try {
+      const response = await fetch(
+        `/api/incidents/${params.id}/attachments/${attachmentId}`,
+        {
+          method: "DELETE",
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error("Failed to delete attachment");
+      }
+
+      setIncident({
+        ...incident,
+        attachments: (incident.attachments || []).filter(
+          (a) => a.id !== attachmentId
+        ),
+      });
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Failed to delete attachment"
+      );
     }
   };
 
   if (loading) return <div className="text-center py-8">Loading...</div>;
   if (error) return <div className="text-center py-8 text-red-500">Error: {error}</div>;
   if (!incident) return <div className="text-center py-8">Not found</div>;
-
-  // Get valid transitions for current status
-  const validTransitions: Record<string, string[]> = {
-    OPEN: ["MITIGATED", "RESOLVED"],
-    MITIGATED: ["RESOLVED"],
-    RESOLVED: [],
-  };
-
-  const nextTransitions = validTransitions[incident.status] || [];
 
   return (
     <div className="min-h-screen bg-gray-50 p-8">
@@ -181,7 +264,7 @@ export default function IncidentDetailPage({
         </div>
 
         {/* Status Transitions */}
-        {nextTransitions.length > 0 && (
+        {VALID_TRANSITIONS[incident.status]?.length > 0 && (
           <div className="bg-white rounded-lg shadow p-8 mb-8">
             <h2 className="text-xl font-bold text-gray-900 mb-4">
               Update Status
@@ -194,7 +277,7 @@ export default function IncidentDetailPage({
               rows={3}
             />
             <div className="flex gap-3">
-              {nextTransitions.map((status) => (
+              {VALID_TRANSITIONS[incident.status]?.map((status) => (
                 <button
                   key={status}
                   onClick={() => handleStatusTransition(status)}
@@ -207,6 +290,80 @@ export default function IncidentDetailPage({
             </div>
           </div>
         )}
+
+        {/* Attachments */}
+        <div className="bg-white rounded-lg shadow p-8 mb-8">
+          <h2 className="text-xl font-bold text-gray-900 mb-6">Attachments</h2>
+
+          {/* Upload Area */}
+          <div
+            className={`border-2 border-dashed rounded-lg p-8 text-center mb-6 transition-colors ${
+              dragActive
+                ? "border-blue-500 bg-blue-50"
+                : "border-gray-300 bg-gray-50"
+            }`}
+            onDragEnter={() => setDragActive(true)}
+            onDragLeave={() => setDragActive(false)}
+            onDrop={(e) => {
+              e.preventDefault();
+              setDragActive(false);
+              handleFileUpload(e.dataTransfer.files);
+            }}
+            onDragOver={(e) => e.preventDefault()}
+          >
+            <label className="cursor-pointer">
+              <p className="text-gray-600 font-semibold mb-2">
+                Drag files here or click to upload
+              </p>
+              <p className="text-sm text-gray-500">
+                Max 10MB per file (PDF, Word, Excel, Images)
+              </p>
+              <input
+                type="file"
+                multiple
+                onChange={(e) => handleFileUpload(e.target.files)}
+                disabled={uploading}
+                className="hidden"
+              />
+            </label>
+          </div>
+
+          {/* Attachments List */}
+          {(incident.attachments || []).length === 0 ? (
+            <p className="text-gray-500">No attachments yet</p>
+          ) : (
+            <div className="space-y-2">
+              {(incident.attachments || []).map((attachment) => (
+                <div
+                  key={attachment.id}
+                  className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100"
+                >
+                  <div className="flex items-center gap-3 flex-1">
+                    <span className="text-2xl">
+                      {getFileIcon(attachment.fileType)}
+                    </span>
+                    <div className="flex-1">
+                      <p className="font-semibold text-gray-900">
+                        {attachment.fileName}
+                      </p>
+                      <p className="text-sm text-gray-600">
+                        {(attachment.fileSize / 1024).toFixed(2)} KB •{" "}
+                        {attachment.uploadedBy.name} •{" "}
+                        {new Date(attachment.uploadedAt).toLocaleDateString()}
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => handleDeleteAttachment(attachment.id)}
+                    className="ml-4 text-red-600 hover:text-red-700 text-sm font-semibold"
+                  >
+                    Delete
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
 
         {/* Timeline */}
         <div className="bg-white rounded-lg shadow p-8">
