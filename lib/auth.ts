@@ -1,5 +1,6 @@
 import { getIronSession } from "iron-session";
 import { cookies } from "next/headers";
+import { prisma } from "./prisma";
 
 export interface SessionUser {
   id: string;
@@ -24,19 +25,33 @@ const SESSION_CONFIG = {
   },
 };
 
+// Cache for dev user to avoid repeated DB queries
+let cachedDevUser: SessionUser | null = null;
+
 export async function getSession(): Promise<Session> {
   const cookieStore = await cookies();
   const session = await getIronSession<Session>(cookieStore, SESSION_CONFIG);
   
-  // DEV MODE: If no user, return a mock user for testing
+  // DEV MODE: If no user, return a real user from the database for testing
   if (process.env.NODE_ENV === "development" && !session.user) {
-    return {
-      user: {
-        id: "dev-user-id",
-        email: "alice@acme.com",
-        name: "Alice Johnson (Dev)",
-      },
-    };
+    if (!cachedDevUser) {
+      const user = await prisma.user.findFirst({
+        orderBy: { createdAt: "asc" },
+      });
+      if (user) {
+        cachedDevUser = {
+          id: user.id,
+          email: user.email,
+          name: user.name + " (Dev)",
+        };
+      }
+    }
+    
+    if (cachedDevUser) {
+      return {
+        user: cachedDevUser,
+      };
+    }
   }
   
   return session;

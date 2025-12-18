@@ -70,3 +70,63 @@ export const securityHeaders = {
   "Referrer-Policy": "strict-origin-when-cross-origin",
   "Content-Security-Policy": "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline';",
 };
+
+/**
+ * CSRF Protection for API routes
+ * Validates that the request originates from the same origin
+ */
+export function validateCsrf(request: Request): boolean {
+  const origin = request.headers.get("origin");
+  const referer = request.headers.get("referer");
+  const host = request.headers.get("host");
+
+  // Allow requests without origin (same-origin requests from some browsers)
+  if (!origin && !referer) {
+    // Check for custom header that JS must set (defense in depth)
+    const customHeader = request.headers.get("x-requested-with");
+    return customHeader === "XMLHttpRequest" || customHeader === "fetch";
+  }
+
+  // Validate origin matches host
+  if (origin) {
+    try {
+      const originUrl = new URL(origin);
+      const expectedHosts = [host, "localhost:3000", "localhost:3001"];
+      return expectedHosts.some(h => originUrl.host === h);
+    } catch {
+      return false;
+    }
+  }
+
+  // Validate referer matches host
+  if (referer) {
+    try {
+      const refererUrl = new URL(referer);
+      const expectedHosts = [host, "localhost:3000", "localhost:3001"];
+      return expectedHosts.some(h => refererUrl.host === h);
+    } catch {
+      return false;
+    }
+  }
+
+  return false;
+}
+
+/**
+ * Helper to check CSRF and return 403 if invalid
+ */
+export function requireCsrf(request: Request): Response | null {
+  // Skip CSRF for GET, HEAD, OPTIONS (safe methods)
+  if (["GET", "HEAD", "OPTIONS"].includes(request.method)) {
+    return null;
+  }
+
+  if (!validateCsrf(request)) {
+    return new Response(JSON.stringify({ error: "CSRF validation failed" }), {
+      status: 403,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
+  return null;
+}
