@@ -3,42 +3,113 @@ import { getCurrentTenantContext } from "./tenant";
 
 const globalForPrisma = global as unknown as { prisma: PrismaClient };
 
-export const prisma = globalForPrisma.prisma || new PrismaClient();
+// Models that should be automatically tenant-scoped
+const TENANT_SCOPED_MODELS = [
+  'Incident',
+  'FeatureFlag',
+  'Rule',
+  'TimelineEvent',
+  'Attachment',
+  'AuditLog',
+  'Job',
+  'SavedView',
+];
 
-if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma;
+const createPrismaClient = () => {
+  const client = new PrismaClient();
 
-/**
- * Get a tenant-scoped Prisma client
- * All queries will be automatically scoped to the current tenant
- */
-export async function getTenantPrisma() {
-  const tenantContext = await getCurrentTenantContext();
-  
-  if (!tenantContext) {
-    throw new Error("No tenant context found. User must be authenticated and have a tenant selected.");
-  }
+  // Tenant enforcement middleware
+  client.$use(async (params, next) => {
+    // Skip middleware for non-tenant-scoped models
+    if (!params.model || !TENANT_SCOPED_MODELS.includes(params.model)) {
+      return next(params);
+    }
 
-  // Create a proxy that enforces tenant filtering on findMany, findFirst, update, delete, etc.
-  return new Proxy(prisma, {
-    get(target, prop) {
-      if (prop === "$disconnect") {
-        return target[prop as keyof PrismaClient];
+    try {
+      const context = await getCurrentTenantContext();
+
+      // Require tenant context for tenant-scoped models
+      if (!context?.tenantId) {
+        throw new Error(
+          `Tenant context required for ${params.model} operation. Ensure user is authenticated and tenant is set.`
+        );
       }
 
-      // For model operations, we could add automatic tenant filtering here
-      // This is a simplified version - in production, use Prisma middleware
-      return target[prop as keyof PrismaClient];
-    },
+      const { tenantId } = context;
+
+      // READ operations: Automatically inject tenantId filter
+      if (['findUnique', 'findUniqueOrThrow', 'findFirst', 'findMany', 'count', 'aggregate'].includes(params.action)) {
+        params.args = params.args || {};
+        params.args.where = {
+          ...params.args.where,
+          tenantId,
+        };
+      }
+
+      // CREATE operations: Automatically inject tenantId
+      if (params.action === 'create') {
+        params.args = params.args || {};
+        params.args.data = {
+          ...params.args.data,
+          tenantId,
+        };
+      }
+
+      // CREATE MANY operations: Inject tenantId into each record
+      if (params.action === 'createMany') {
+        params.args = params.args || {};
+        if (Array.isArray(params.args.data)) {
+          params.args.data = params.args.data.map((record: any) => ({
+            ...record,
+            tenantId,
+          }));
+        } else {
+          params.args.data = {
+            ...params.args.data,
+            tenantId,
+          };
+        }
+      }
+
+      // UPDATE/DELETE operations: Scope to current tenant only
+      if (['update', 'updateMany', 'delete', 'deleteMany'].includes(params.action)) {
+        params.args = params.args || {};
+        params.args.where = {
+          ...params.args.where,
+          tenantId,
+        };
+      }
+
+      // UPSERT operations: Inject tenantId in both where and create/update
+      if (params.action === 'upsert') {
+        params.args = params.args || {};
+        params.args.where = {
+          ...params.args.where,
+          tenantId,
+        };
+        params.args.create = {
+          ...params.args.create,
+          tenantId,
+        };
+        params.args.update = params.args.update || {};
+        // Don't override tenantId in update - it should remain the same
+      }
+
+      return next(params);
+    } catch (error) {
+      // If we can't get tenant context in a background job or system operation,
+      // fail explicitly rather than allowing unscoped queries
+      if (error instanceof Error && error.message.includes('Tenant context required')) {
+        throw error;
+      }
+      // For other errors (like tenant context not available), re-throw
+      throw new Error(`Tenant enforcement error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
   });
-}
 
-// Prisma middleware to enforce tenant filtering
-  prisma.$use(async (params, next) => {
-  // Only apply tenant filtering on data access operations
-  if (["findUnique", "findUniqueOrThrow", "findFirst", "findMany", "update", "updateMany", "delete", "deleteMany"].includes(params.action)) {
-    // This is where you'd add automatic tenant filtering
-    // For now, it's documented to be done explicitly in queries
-  }
+  return client;
+};
 
-  return next(params);
-});
+export const prisma = globalForPrisma.prisma || createPrismaClient();
+
+if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma;
