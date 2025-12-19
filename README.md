@@ -520,31 +520,16 @@ tests/integration/
 
 ## Environment Variables
 
-```env
-# Database
-DATABASE_URL=postgresql://postgres:postgres@localhost:5432/next_ops_dev
+Copy `.env.example` to `.env.local` and configure:
 
-# Authentication
-NEXTAUTH_SECRET=your-32-character-secret-key-here
-NEXTAUTH_URL=http://localhost:3000
+| Variable | Description | Required |
+|----------|-------------|----------|
+| `DATABASE_URL` | PostgreSQL connection string | Yes |
+| `NEXTAUTH_SECRET` | 32+ character secret for session encryption | Yes |
+| `NEXTAUTH_URL` | Application URL (e.g., `http://localhost:3000`) | Yes |
+| `NODE_ENV` | `development` or `production` | No |
 
-# Optional
-NODE_ENV=development
-```
-
----
-
-## License
-
-MIT
+See `.env.example` for sample values.
 
 ---
 
-## Contributing
-
-1. Fork the repository
-2. Create a feature branch: `git checkout -b feature/my-feature`
-3. Run tests: `npm test`
-4. Commit changes: `git commit -m 'Add my feature'`
-5. Push to branch: `git push origin feature/my-feature`
-6. Open a Pull Request
