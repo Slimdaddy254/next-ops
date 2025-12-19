@@ -143,8 +143,9 @@ export default function FeatureFlagDetailPage() {
       setNewRuleUsers("");
       setNewRulePercent(50);
       setShowAddRule(false);
+      toast.success("Rule added successfully");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to add rule");
+      toast.error(err instanceof Error ? err.message : "Failed to add rule");
     }
   };
 
@@ -229,12 +230,6 @@ export default function FeatureFlagDetailPage() {
           </Link>
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Edit Feature Flag</h1>
         </div>
-
-        {error && (
-          <div className="mb-6 p-4 bg-red-100 border border-red-200 text-red-800 dark:bg-red-500/20 dark:border-red-500/30 dark:text-red-400 rounded-lg">
-            {error}
-          </div>
-        )}
 
         {/* Main Settings */}
         <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg p-8 mb-6">

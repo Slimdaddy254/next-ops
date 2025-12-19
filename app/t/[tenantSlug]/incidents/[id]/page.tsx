@@ -44,6 +44,7 @@ interface Incident {
   environment: "DEV" | "STAGING" | "PROD";
   tags: string[];
   createdAt: string;
+  updatedAt: string;
   createdBy: { id: string; name: string; email: string };
   assignee?: { id: string; name: string; email: string } | null;
   timeline: TimelineEvent[];
@@ -147,7 +148,8 @@ export default function IncidentDetailPage({
         }
 
         if (data.type === "deleted") {
-          setError("This incident has been deleted");
+          toast.error("This incident has been deleted");
+          // Optionally redirect to incidents list
         }
       } catch {
         // Ignore parse errors for heartbeats
