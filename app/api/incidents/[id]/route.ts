@@ -114,6 +114,11 @@ export async function PATCH(
       );
     }
 
+    // Verify user exists in database before creating timeline/audit logs
+    const userExists = await prisma.user.findUnique({
+      where: { id: userId },
+    });
+
     // Update incident in transaction
     const updatedIncident = await prisma.$transaction(async (tx) => {
       const updated = await tx.incident.update({
@@ -125,42 +130,44 @@ export async function PATCH(
         },
       });
 
-      // Create status_change timeline event
-      await tx.timelineEvent.create({
-        data: {
-          incidentId: id,
-          tenantId: tenantContext.tenantId,
-          type: "STATUS_CHANGE",
-          data: { from: incident.status, to: newStatus },
-          createdById: userId,
-        },
-      });
-
-      // If message provided, create a note event
-      if (message) {
+      // Create status_change timeline event (only if user exists)
+      if (userExists) {
         await tx.timelineEvent.create({
           data: {
             incidentId: id,
             tenantId: tenantContext.tenantId,
-            type: "NOTE",
-            message,
+            type: "STATUS_CHANGE",
+            data: { from: incident.status, to: newStatus },
             createdById: userId,
           },
         });
-      }
 
-      // Create audit log
-      await tx.auditLog.create({
-        data: {
-          tenantId: tenantContext.tenantId,
-          actorId: userId,
-          action: "UPDATE",
-          entityType: "Incident",
-          entityId: id,
-          beforeData: JSON.parse(JSON.stringify(incident)),
-          afterData: JSON.parse(JSON.stringify(updated)),
-        },
-      });
+        // If message provided, create a note event
+        if (message) {
+          await tx.timelineEvent.create({
+            data: {
+              incidentId: id,
+              tenantId: tenantContext.tenantId,
+              type: "NOTE",
+              message,
+              createdById: userId,
+            },
+          });
+        }
+
+        // Create audit log
+        await tx.auditLog.create({
+          data: {
+            tenantId: tenantContext.tenantId,
+            actorId: userId,
+            action: "UPDATE",
+            entityType: "Incident",
+            entityId: id,
+            beforeData: JSON.parse(JSON.stringify(incident)),
+            afterData: JSON.parse(JSON.stringify(updated)),
+          },
+        });
+      }
 
       return updated;
     });
@@ -176,7 +183,7 @@ export async function PATCH(
 
     console.error("Error updating incident:", error);
     return NextResponse.json(
-      { error: "Failed to update incident" },
+      { error: error instanceof Error ? error.message : "Failed to update incident" },
       { status: 500 }
     );
   }

@@ -119,7 +119,7 @@ export async function PATCH(
   } catch (error) {
     console.error("Error updating feature flag:", error);
     return NextResponse.json(
-      { error: "Failed to update feature flag" },
+      { error: error instanceof Error ? error.message : "Failed to update feature flag" },
       { status: 500 }
     );
   }

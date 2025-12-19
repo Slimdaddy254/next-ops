@@ -10,6 +10,7 @@ import {
   faCheck,
 } from "@fortawesome/free-solid-svg-icons";
 import { logout, switchTenant } from "@/app/actions/auth";
+import { ThemeToggle } from "./ThemeToggle";
 
 interface Tenant {
   id: string;
@@ -47,30 +48,30 @@ export default function UserMenu({ user, tenants, currentTenantSlug }: UserMenuP
     <div className="relative" ref={menuRef}>
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-700 transition-colors"
+        className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
       >
         <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center">
           <FontAwesomeIcon icon={faUser} className="text-white text-sm" />
         </div>
         <div className="text-left hidden sm:block">
-          <p className="text-sm font-medium text-white">{user.name}</p>
-          <p className="text-xs text-gray-400">{currentTenant?.name}</p>
+          <p className="text-sm font-medium text-gray-900 dark:text-white">{user.name}</p>
+          <p className="text-xs text-gray-500 dark:text-gray-400">{currentTenant?.name}</p>
         </div>
         <FontAwesomeIcon
           icon={faChevronDown}
-          className={`text-gray-400 text-xs transition-transform ${isOpen ? "rotate-180" : ""}`}
+          className={`text-gray-500 dark:text-gray-400 text-xs transition-transform ${isOpen ? "rotate-180" : ""}`}
         />
       </button>
 
       {isOpen && (
-        <div className="absolute right-0 mt-2 w-64 bg-gray-800 border border-gray-700 rounded-lg shadow-xl z-50">
-          <div className="p-4 border-b border-gray-700">
-            <p className="font-medium text-white">{user.name}</p>
-            <p className="text-sm text-gray-400">{user.email}</p>
+        <div className="absolute right-0 mt-2 w-64 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg shadow-xl z-50">
+          <div className="p-4 border-b border-gray-200 dark:border-gray-700">
+            <p className="font-medium text-gray-900 dark:text-white">{user.name}</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400">{user.email}</p>
           </div>
 
           {tenants.length > 1 && (
-            <div className="p-2 border-b border-gray-700">
+            <div className="p-2 border-b border-gray-200 dark:border-gray-700">
               <p className="px-2 py-1 text-xs font-medium text-gray-500 uppercase">
                 Switch Organization
               </p>
@@ -81,11 +82,11 @@ export default function UserMenu({ user, tenants, currentTenantSlug }: UserMenuP
                     setIsOpen(false);
                     switchTenant(tenant.slug);
                   }}
-                  className="w-full flex items-center gap-3 px-2 py-2 rounded hover:bg-gray-700 transition-colors"
+                  className="w-full flex items-center gap-3 px-2 py-2 rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
                 >
                   <FontAwesomeIcon icon={faBuilding} className="text-gray-400" />
                   <div className="flex-1 text-left">
-                    <p className="text-sm text-white">{tenant.name}</p>
+                    <p className="text-sm text-gray-900 dark:text-white">{tenant.name}</p>
                     <p className="text-xs text-gray-500">{tenant.role}</p>
                   </div>
                   {tenant.slug === currentTenantSlug && (
@@ -97,15 +98,18 @@ export default function UserMenu({ user, tenants, currentTenantSlug }: UserMenuP
           )}
 
           <div className="p-2">
-            <form action={logout}>
-              <button
-                type="submit"
-                className="w-full flex items-center gap-3 px-2 py-2 rounded hover:bg-gray-700 transition-colors text-red-400"
-              >
-                <FontAwesomeIcon icon={faSignOutAlt} />
-                <span>Sign out</span>
-              </button>
-            </form>
+            <div className="flex items-center justify-between gap-2">
+              <form action={logout} className="flex-1">
+                <button
+                  type="submit"
+                  className="w-full flex items-center gap-3 px-2 py-2 rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-red-500 dark:text-red-400"
+                >
+                  <FontAwesomeIcon icon={faSignOutAlt} />
+                  <span>Sign out</span>
+                </button>
+              </form>
+              <ThemeToggle />
+            </div>
           </div>
         </div>
       )}

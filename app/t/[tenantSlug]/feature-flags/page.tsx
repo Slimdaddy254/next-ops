@@ -14,6 +14,7 @@ import {
   faChevronDown,
   faChevronRight,
 } from "@fortawesome/free-solid-svg-icons";
+import { useToast } from "@/app/components/ToastProvider";
 
 interface Rule {
   id: string;
@@ -34,9 +35,9 @@ interface FeatureFlag {
 }
 
 const envColors = {
-  DEV: "bg-green-100 text-green-800",
-  STAGING: "bg-yellow-100 text-yellow-800",
-  PROD: "bg-red-100 text-red-800",
+  DEV: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300",
+  STAGING: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300",
+  PROD: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300",
 };
 
 export default function FeatureFlagsPage({
@@ -45,9 +46,9 @@ export default function FeatureFlagsPage({
   params: Promise<{ tenantSlug: string }>;
 }) {
   const { tenantSlug } = use(params);
+  const toast = useToast();
   const [flags, setFlags] = useState<FeatureFlag[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [showCreate, setShowCreate] = useState(false);
   const [creating, setCreating] = useState(false);
   const [expandedFlag, setExpandedFlag] = useState<string | null>(null);
@@ -80,7 +81,7 @@ export default function FeatureFlagsPage({
       const data = await response.json();
       setFlags(data.flags);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unknown error");
+      toast.error(err instanceof Error ? err.message : "Failed to fetch flags");
     } finally {
       setLoading(false);
     }
@@ -111,8 +112,9 @@ export default function FeatureFlagsPage({
         environment: "DEV",
         enabled: false,
       });
+      toast.success("Feature flag created successfully");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to create flag");
+      toast.error(err instanceof Error ? err.message : "Failed to create flag");
     } finally {
       setCreating(false);
     }
@@ -133,8 +135,9 @@ export default function FeatureFlagsPage({
           f.id === flag.id ? { ...f, enabled: !f.enabled } : f
         )
       );
+      toast.success(`Flag ${flag.enabled ? 'disabled' : 'enabled'} successfully`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to toggle flag");
+      toast.error(err instanceof Error ? err.message : "Failed to toggle flag");
     }
   };
 
@@ -149,14 +152,15 @@ export default function FeatureFlagsPage({
       if (!response.ok) throw new Error("Failed to delete flag");
 
       setFlags(flags.filter((f) => f.id !== flagId));
+      toast.success("Flag deleted successfully");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to delete flag");
+      toast.error(err instanceof Error ? err.message : "Failed to delete flag");
     }
   };
 
   const handleTestFlag = async (flagId: string) => {
     if (!testUserId) {
-      setError("Please enter a user ID to test");
+      toast.error("Please enter a user ID to test");
       return;
     }
 
@@ -175,7 +179,7 @@ export default function FeatureFlagsPage({
       const result = await response.json();
       setTestResult({ flagId, ...result });
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to test flag");
+      toast.error(err instanceof Error ? err.message : "Failed to test flag");
     }
   };
 
@@ -215,15 +219,6 @@ export default function FeatureFlagsPage({
           New Flag
         </button>
       </div>
-
-      {error && (
-        <div className="mb-4 p-4 bg-red-900/50 border border-red-700 rounded-lg text-red-300">
-          {error}
-          <button onClick={() => setError(null)} className="ml-4 underline">
-            Dismiss
-          </button>
-        </div>
-      )}
 
       {/* Create Flag Form */}
       {showCreate && (
@@ -297,28 +292,28 @@ export default function FeatureFlagsPage({
       )}
 
       {/* Test Flag Panel */}
-      <div className="mb-6 p-4 bg-gray-800 rounded-lg border border-gray-700">
-        <h2 className="text-lg font-semibold text-white mb-3 flex items-center gap-2">
+      <div className="mb-6 p-4 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+        <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-3 flex items-center gap-2">
           <FontAwesomeIcon icon={faFlask} />
           Test Flag Evaluation
         </h2>
         <div className="flex gap-4 items-end">
           <div className="flex-1">
-            <label className="block text-sm text-gray-400 mb-1">User ID</label>
+            <label className="block text-sm text-gray-500 dark:text-gray-400 mb-1">User ID</label>
             <input
               type="text"
               value={testUserId}
               onChange={(e) => setTestUserId(e.target.value)}
               placeholder="user-123"
-              className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white"
+              className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded text-gray-900 dark:text-white"
             />
           </div>
           <div>
-            <label className="block text-sm text-gray-400 mb-1">Environment</label>
+            <label className="block text-sm text-gray-500 dark:text-gray-400 mb-1">Environment</label>
             <select
               value={testEnv}
               onChange={(e) => setTestEnv(e.target.value as "DEV" | "STAGING" | "PROD")}
-              className="px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white"
+              className="px-3 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded text-gray-900 dark:text-white"
             >
               <option value="DEV">DEV</option>
               <option value="STAGING">STAGING</option>
@@ -328,22 +323,22 @@ export default function FeatureFlagsPage({
         </div>
 
         {testResult && (
-          <div className="mt-4 p-4 bg-gray-900 rounded border border-gray-700">
+          <div className="mt-4 p-4 bg-gray-50 dark:bg-gray-900 rounded border border-gray-200 dark:border-gray-700">
             <div className="flex items-center gap-3 mb-2">
               <span
                 className={`px-2 py-1 rounded text-sm font-medium ${
                   testResult.enabled
-                    ? "bg-green-900 text-green-300"
-                    : "bg-red-900 text-red-300"
+                    ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300"
+                    : "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300"
                 }`}
               >
                 {testResult.enabled ? "ENABLED" : "DISABLED"}
               </span>
-              <span className="text-gray-400">{testResult.reason}</span>
+              <span className="text-gray-500 dark:text-gray-400">{testResult.reason}</span>
             </div>
             <details className="text-sm">
               <summary className="text-gray-500 cursor-pointer">Evaluation trace</summary>
-              <pre className="mt-2 p-2 bg-gray-800 rounded text-gray-300 text-xs overflow-x-auto">
+              <pre className="mt-2 p-2 bg-gray-100 dark:bg-gray-800 rounded text-gray-700 dark:text-gray-300 text-xs overflow-x-auto">
                 {testResult.trace.join("\n")}
               </pre>
             </details>
@@ -353,7 +348,7 @@ export default function FeatureFlagsPage({
 
       {/* Flags List */}
       {flags.length === 0 ? (
-        <div className="text-center py-12 text-gray-500">
+        <div className="text-center py-12 text-gray-500 dark:text-gray-500">
           <FontAwesomeIcon icon={faFlag} className="text-4xl mb-4" />
           <p>No feature flags yet. Create one to get started.</p>
         </div>
@@ -362,12 +357,12 @@ export default function FeatureFlagsPage({
           {flags.map((flag) => (
             <div
               key={flag.id}
-              className="bg-gray-800 rounded-lg border border-gray-700 overflow-hidden"
+              className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden"
             >
               <div className="p-4 flex items-center gap-4">
                 <button
                   onClick={() => setExpandedFlag(expandedFlag === flag.id ? null : flag.id)}
-                  className="text-gray-400 hover:text-white"
+                  className="text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
                 >
                   <FontAwesomeIcon
                     icon={expandedFlag === flag.id ? faChevronDown : faChevronRight}
@@ -376,23 +371,23 @@ export default function FeatureFlagsPage({
 
                 <button
                   onClick={() => handleToggleFlag(flag)}
-                  className={`text-2xl ${flag.enabled ? "text-green-500" : "text-gray-500"}`}
+                  className={`text-2xl ${flag.enabled ? "text-green-500" : "text-gray-400 dark:text-gray-500"}`}
                 >
                   <FontAwesomeIcon icon={flag.enabled ? faToggleOn : faToggleOff} />
                 </button>
 
                 <div className="flex-1">
                   <div className="flex items-center gap-2">
-                    <span className="font-mono text-white">{flag.key}</span>
+                    <span className="font-mono text-gray-900 dark:text-white">{flag.key}</span>
                     <span className={`px-2 py-0.5 rounded text-xs ${envColors[flag.environment]}`}>
                       {flag.environment}
                     </span>
                   </div>
-                  <p className="text-sm text-gray-400">{flag.name}</p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">{flag.name}</p>
                 </div>
 
                 <div className="flex items-center gap-2">
-                  <span className="text-sm text-gray-500">{flag.rules.length} rules</span>
+                  <span className="text-sm text-gray-500">{(flag.rules || []).length} rules</span>
                   <button
                     onClick={() => handleTestFlag(flag.id)}
                     className="px-3 py-1 bg-purple-600 hover:bg-purple-700 text-white rounded text-sm"
@@ -410,13 +405,13 @@ export default function FeatureFlagsPage({
               </div>
 
               {expandedFlag === flag.id && (
-                <div className="border-t border-gray-700 p-4 bg-gray-900">
+                <div className="border-t border-gray-200 dark:border-gray-700 p-4 bg-gray-50 dark:bg-gray-900">
                   {flag.description && (
-                    <p className="text-gray-400 mb-4">{flag.description}</p>
+                    <p className="text-gray-500 dark:text-gray-400 mb-4">{flag.description}</p>
                   )}
 
-                  <h3 className="text-sm font-semibold text-gray-300 mb-2">Rules</h3>
-                  {flag.rules.length === 0 ? (
+                  <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Rules</h3>
+                  {!flag.rules || flag.rules.length === 0 ? (
                     <p className="text-gray-500 text-sm">
                       No rules defined. Flag applies to all users when enabled.
                     </p>
@@ -425,21 +420,21 @@ export default function FeatureFlagsPage({
                       {flag.rules.map((rule, idx) => (
                         <div
                           key={rule.id}
-                          className="flex items-center gap-3 p-2 bg-gray-800 rounded"
+                          className="flex items-center gap-3 p-2 bg-white dark:bg-gray-800 rounded border border-gray-200 dark:border-gray-700"
                         >
                           <span className="text-gray-500 text-sm">{idx + 1}.</span>
                           <span
                             className={`px-2 py-0.5 rounded text-xs font-medium ${
                               rule.type === "ALLOWLIST"
-                                ? "bg-blue-900 text-blue-300"
+                                ? "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300"
                                 : rule.type === "PERCENT_ROLLOUT"
-                                ? "bg-green-900 text-green-300"
-                                : "bg-purple-900 text-purple-300"
+                                ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300"
+                                : "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300"
                             }`}
                           >
                             {rule.type}
                           </span>
-                          <span className="text-gray-300 text-sm">
+                          <span className="text-gray-700 dark:text-gray-300 text-sm">
                             {formatRuleCondition(rule)}
                           </span>
                         </div>
@@ -449,7 +444,7 @@ export default function FeatureFlagsPage({
 
                   <Link
                     href={`/t/${tenantSlug}/feature-flags/${flag.id}`}
-                    className="inline-block mt-4 text-blue-400 hover:text-blue-300 text-sm"
+                    className="inline-block mt-4 text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 text-sm"
                   >
                     Edit flag & rules →
                   </Link>

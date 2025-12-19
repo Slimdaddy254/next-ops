@@ -167,7 +167,7 @@ export async function POST(request: NextRequest) {
 
     console.error("Error in bulk action:", error);
     return NextResponse.json(
-      { error: "Failed to perform bulk action" },
+      { error: error instanceof Error ? error.message : "Failed to perform bulk action" },
       { status: 500 }
     );
   }

@@ -15,6 +15,7 @@ import {
   faBolt,
   faExchangeAlt,
 } from "@fortawesome/free-solid-svg-icons";
+import { useToast } from "@/app/components/ToastProvider";
 
 interface Attachment {
   id: string;
@@ -50,16 +51,16 @@ interface Incident {
 }
 
 const severityColors = {
-  SEV1: "bg-red-500/20 text-red-400 border border-red-500/30",
-  SEV2: "bg-orange-500/20 text-orange-400 border border-orange-500/30",
-  SEV3: "bg-yellow-500/20 text-yellow-400 border border-yellow-500/30",
-  SEV4: "bg-blue-500/20 text-blue-400 border border-blue-500/30",
+  SEV1: "bg-red-100 text-red-800 border-red-200 dark:bg-red-500/20 dark:text-red-400 dark:border-red-500/30",
+  SEV2: "bg-orange-100 text-orange-800 border-orange-200 dark:bg-orange-500/20 dark:text-orange-400 dark:border-orange-500/30",
+  SEV3: "bg-yellow-100 text-yellow-800 border-yellow-200 dark:bg-yellow-500/20 dark:text-yellow-400 dark:border-yellow-500/30",
+  SEV4: "bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-500/20 dark:text-blue-400 dark:border-blue-500/30",
 };
 
 const statusColors = {
-  OPEN: "bg-red-500/20 text-red-300 border-l-red-500",
-  MITIGATED: "bg-yellow-500/20 text-yellow-300 border-l-yellow-500",
-  RESOLVED: "bg-green-500/20 text-green-300 border-l-green-500",
+  OPEN: "bg-red-50 text-red-700 border-l-red-500 dark:bg-red-500/20 dark:text-red-300",
+  MITIGATED: "bg-yellow-50 text-yellow-700 border-l-yellow-500 dark:bg-yellow-500/20 dark:text-yellow-300",
+  RESOLVED: "bg-green-50 text-green-700 border-l-green-500 dark:bg-green-500/20 dark:text-green-300",
 };
 
 const VALID_TRANSITIONS: Record<string, string[]> = {
@@ -74,9 +75,9 @@ export default function IncidentDetailPage({
   params: Promise<{ tenantSlug: string; id: string }>;
 }) {
   const { tenantSlug, id } = use(params);
+  const toast = useToast();
   const [incident, setIncident] = useState<Incident | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [updating, setUpdating] = useState(false);
   const [transitionMessage, setTransitionMessage] = useState("");
   const [uploading, setUploading] = useState(false);
@@ -98,16 +99,15 @@ export default function IncidentDetailPage({
         }
         const data = await response.json();
         setIncident(data);
-        setError(null);
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Unknown error");
+        toast.error(err instanceof Error ? err.message : "Failed to fetch incident");
       } finally {
         setLoading(false);
       }
     };
 
     fetchIncident();
-  }, [id]);
+  }, [id, toast]);
 
   // SSE for realtime updates
   useEffect(() => {
@@ -124,10 +124,17 @@ export default function IncidentDetailPage({
         const data = JSON.parse(event.data);
 
         if (data.type === "incident_updated" && incident) {
-          setIncident({
-            ...incident,
-            ...data.data,
-          });
+          // Only update if SSE data is newer than current state
+          // This prevents SSE from overwriting optimistic updates
+          const currentTime = new Date(incident.updatedAt).getTime();
+          const sseTime = new Date(data.data.updatedAt).getTime();
+          
+          if (sseTime > currentTime) {
+            setIncident({
+              ...incident,
+              ...data.data,
+            });
+          }
         }
 
         if (data.type === "timeline_updated" && incident) {
@@ -170,8 +177,19 @@ export default function IncidentDetailPage({
   const handleStatusTransition = async (newStatus: string) => {
     if (!incident) return;
 
-    setUpdating(true);
+    const previousStatus = incident.status;
+    const previousIncident = incident;
+    
     try {
+      // Optimistic update - batch state changes
+      const optimisticUpdate = {
+        ...incident,
+        status: newStatus as "OPEN" | "MITIGATED" | "RESOLVED",
+        updatedAt: new Date().toISOString(),
+      };
+      setIncident(optimisticUpdate);
+      setUpdating(true);
+      
       const response = await fetch(`/api/incidents/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -182,17 +200,22 @@ export default function IncidentDetailPage({
       });
 
       if (!response.ok) {
-        throw new Error("Failed to update status");
+        // Rollback on error - batch state changes
+        setIncident(previousIncident);
+        setUpdating(false);
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to update status");
       }
 
+      // Get the server response - batch final updates
       const updated = await response.json();
       setIncident(updated);
       setTransitionMessage("");
-      setError(null);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to update status");
-    } finally {
       setUpdating(false);
+      toast.success("Status updated successfully");
+    } catch (err) {
+      setUpdating(false);
+      toast.error(err instanceof Error ? err.message : "Failed to update status");
     }
   };
 
@@ -225,8 +248,9 @@ export default function IncidentDetailPage({
         const updated = await refreshResponse.json();
         setIncident(updated);
       }
+      toast.success("Files uploaded successfully");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to upload files");
+      toast.error(err instanceof Error ? err.message : "Failed to upload files");
     } finally {
       setUploading(false);
       setDragActive(false);
@@ -254,8 +278,9 @@ export default function IncidentDetailPage({
           (a) => a.id !== attachmentId
         ),
       });
+      toast.success("Attachment deleted successfully");
     } catch (err) {
-      setError(
+      toast.error(
         err instanceof Error ? err.message : "Failed to delete attachment"
       );
     }
@@ -283,8 +308,9 @@ export default function IncidentDetailPage({
         setIncident(updated);
       }
       setNoteInput("");
+      toast.success("Note added successfully");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to add note");
+      toast.error(err instanceof Error ? err.message : "Failed to add note");
     } finally {
       setAddingNote(false);
     }
@@ -312,16 +338,16 @@ export default function IncidentDetailPage({
         setIncident(updated);
       }
       setActionInput("");
+      toast.success("Action added successfully");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to add action");
+      toast.error(err instanceof Error ? err.message : "Failed to add action");
     } finally {
       setAddingAction(false);
     }
   };
 
-  if (loading) return <div className="text-center py-8 text-gray-400">Loading...</div>;
-  if (error) return <div className="text-center py-8 text-red-400">Error: {error}</div>;
-  if (!incident) return <div className="text-center py-8 text-gray-400">Not found</div>;
+  if (loading) return <div className="text-center py-8 text-gray-500 dark:text-gray-400">Loading...</div>;
+  if (!incident) return <div className="text-center py-8 text-gray-500 dark:text-gray-400">Not found</div>;
 
   return (
     <div className="min-h-screen p-8">
@@ -329,28 +355,28 @@ export default function IncidentDetailPage({
         <div className="flex justify-between items-center mb-4">
           <Link
             href={`/t/${tenantSlug}/incidents`}
-            className="text-blue-400 hover:text-blue-300"
+            className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300"
           >
             ← Back to Incidents
           </Link>
           <div className="flex items-center gap-2">
             <span
               className={`w-2 h-2 rounded-full ${
-                isConnected ? "bg-green-500" : "bg-gray-500"
+                isConnected ? "bg-green-500" : "bg-gray-400 dark:bg-gray-500"
               }`}
             />
-            <span className="text-sm text-gray-400">
+            <span className="text-sm text-gray-500 dark:text-gray-400">
               {isConnected ? "Live" : "Connecting..."}
             </span>
           </div>
         </div>
 
-        <div className={`bg-gray-800 border border-gray-700 rounded-lg shadow-lg p-8 mb-8 border-l-4 ${statusColors[incident.status]}`}>
+        <div className={`bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg p-8 mb-8 border-l-4 ${statusColors[incident.status]}`}>
           <div className="flex justify-between items-start mb-6">
-            <h1 className="text-3xl font-bold text-white">{incident.title}</h1>
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-white">{incident.title}</h1>
             <div className="flex gap-2">
               <span
-                className={`px-4 py-2 rounded-full font-medium ${
+                className={`px-4 py-2 rounded-full font-medium border ${
                   severityColors[incident.severity]
                 }`}
               >
@@ -358,9 +384,9 @@ export default function IncidentDetailPage({
               </span>
               <span
                 className={`px-4 py-2 rounded-full font-medium border ${
-                  incident.status === 'OPEN' ? 'bg-red-500/20 text-red-300 border-red-500/30' :
-                  incident.status === 'MITIGATED' ? 'bg-yellow-500/20 text-yellow-300 border-yellow-500/30' :
-                  'bg-green-500/20 text-green-300 border-green-500/30'
+                  incident.status === 'OPEN' ? 'bg-red-100 text-red-800 border-red-200 dark:bg-red-500/20 dark:text-red-300 dark:border-red-500/30' :
+                  incident.status === 'MITIGATED' ? 'bg-yellow-100 text-yellow-800 border-yellow-200 dark:bg-yellow-500/20 dark:text-yellow-300 dark:border-yellow-500/30' :
+                  'bg-green-100 text-green-800 border-green-200 dark:bg-green-500/20 dark:text-green-300 dark:border-green-500/30'
                 }`}
               >
                 {incident.status}
@@ -370,21 +396,21 @@ export default function IncidentDetailPage({
 
           <div className="grid grid-cols-2 md:grid-cols-4 gap-6 text-sm">
             <div>
-              <p className="text-gray-400 font-medium">Service</p>
-              <p className="text-white">{incident.service}</p>
+              <p className="text-gray-500 dark:text-gray-400 font-medium">Service</p>
+              <p className="text-gray-900 dark:text-white">{incident.service}</p>
             </div>
             <div>
-              <p className="text-gray-400 font-medium">Environment</p>
-              <p className="text-white">{incident.environment}</p>
+              <p className="text-gray-500 dark:text-gray-400 font-medium">Environment</p>
+              <p className="text-gray-900 dark:text-white">{incident.environment}</p>
             </div>
             <div>
-              <p className="text-gray-400 font-medium">Created by</p>
-              <p className="text-white">{incident.createdBy.name}</p>
+              <p className="text-gray-500 dark:text-gray-400 font-medium">Created by</p>
+              <p className="text-gray-900 dark:text-white">{incident.createdBy.name}</p>
             </div>
             {incident.assignee && (
               <div>
-                <p className="text-gray-400 font-medium">Assigned to</p>
-                <p className="text-white">{incident.assignee.name}</p>
+                <p className="text-gray-500 dark:text-gray-400 font-medium">Assigned to</p>
+                <p className="text-gray-900 dark:text-white">{incident.assignee.name}</p>
               </div>
             )}
           </div>
@@ -394,7 +420,7 @@ export default function IncidentDetailPage({
               {incident.tags.map((tag) => (
                 <span
                   key={tag}
-                  className="px-3 py-1 bg-gray-700 text-gray-300 text-sm rounded border border-gray-600"
+                  className="px-3 py-1 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-sm rounded border border-gray-200 dark:border-gray-600"
                 >
                   {tag}
                 </span>
@@ -405,15 +431,15 @@ export default function IncidentDetailPage({
 
         {/* Status Transitions */}
         {VALID_TRANSITIONS[incident.status]?.length > 0 && (
-          <div className="bg-gray-800 border border-gray-700 rounded-lg shadow-lg p-8 mb-8">
-            <h2 className="text-xl font-bold text-white mb-4">
+          <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg p-8 mb-8">
+            <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4">
               Update Status
             </h2>
             <textarea
               value={transitionMessage}
               onChange={(e) => setTransitionMessage(e.target.value)}
               placeholder="Add a note about this status change (optional)"
-              className="w-full px-4 py-2 bg-gray-700 border border-gray-600 text-white placeholder-gray-400 rounded-lg mb-4 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-4 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 rounded-lg mb-4 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               rows={3}
             />
             <div className="flex gap-3">
@@ -422,7 +448,7 @@ export default function IncidentDetailPage({
                   key={status}
                   onClick={() => handleStatusTransition(status)}
                   disabled={updating}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-600 disabled:text-gray-400 transition-colors"
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400 dark:disabled:bg-gray-600 disabled:text-gray-200 dark:disabled:text-gray-400 transition-colors"
                 >
                   {updating ? "Updating..." : `Mark as ${status}`}
                 </button>
@@ -432,15 +458,15 @@ export default function IncidentDetailPage({
         )}
 
         {/* Attachments */}
-        <div className="bg-gray-800 border border-gray-700 rounded-lg shadow-lg p-8 mb-8">
-          <h2 className="text-xl font-bold text-white mb-6">Attachments</h2>
+        <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg p-8 mb-8">
+          <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-6">Attachments</h2>
 
           {/* Upload Area */}
           <div
             className={`border-2 border-dashed rounded-lg p-8 text-center mb-6 transition-colors ${
               dragActive
-                ? "border-blue-500 bg-blue-500/10"
-                : "border-gray-600 bg-gray-700/50"
+                ? "border-blue-500 bg-blue-50 dark:bg-blue-500/10"
+                : "border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700/50"
             }`}
             onDragEnter={() => setDragActive(true)}
             onDragLeave={() => setDragActive(false)}
@@ -452,10 +478,10 @@ export default function IncidentDetailPage({
             onDragOver={(e) => e.preventDefault()}
           >
             <label className="cursor-pointer">
-              <p className="text-gray-300 font-semibold mb-2">
+              <p className="text-gray-700 dark:text-gray-300 font-semibold mb-2">
                 Drag files here or click to upload
               </p>
-              <p className="text-sm text-gray-400">
+              <p className="text-sm text-gray-500 dark:text-gray-400">
                 Max 10MB per file (PDF, Word, Excel, Images)
               </p>
               <input
@@ -470,24 +496,24 @@ export default function IncidentDetailPage({
 
           {/* Attachments List */}
           {(incident.attachments || []).length === 0 ? (
-            <p className="text-gray-400">No attachments yet</p>
+            <p className="text-gray-500 dark:text-gray-400">No attachments yet</p>
           ) : (
             <div className="space-y-2">
               {(incident.attachments || []).map((attachment) => (
                 <div
                   key={attachment.id}
-                  className="flex items-center justify-between p-4 bg-gray-700 border border-gray-600 rounded-lg hover:bg-gray-600 transition-colors"
+                  className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
                 >
                   <div className="flex items-center gap-3 flex-1">
                     <FontAwesomeIcon
                       icon={getFileIcon(attachment.fileType)}
-                      className="text-xl text-blue-400"
+                      className="text-xl text-blue-500 dark:text-blue-400"
                     />
                     <div className="flex-1">
-                      <p className="font-semibold text-white">
+                      <p className="font-semibold text-gray-900 dark:text-white">
                         {attachment.fileName}
                       </p>
-                      <p className="text-sm text-gray-400">
+                      <p className="text-sm text-gray-500 dark:text-gray-400">
                         {(attachment.fileSize / 1024).toFixed(2)} KB •{" "}
                         {attachment.uploadedBy.name} •{" "}
                         {new Date(attachment.uploadedAt).toLocaleDateString()}
@@ -496,7 +522,7 @@ export default function IncidentDetailPage({
                   </div>
                   <button
                     onClick={() => handleDeleteAttachment(attachment.id)}
-                    className="ml-4 text-red-400 hover:text-red-300 transition-colors"
+                    className="ml-4 text-red-500 dark:text-red-400 hover:text-red-600 dark:hover:text-red-300 transition-colors"
                     title="Delete attachment"
                   >
                     <FontAwesomeIcon icon={faTrash} className="text-lg" />
@@ -508,8 +534,8 @@ export default function IncidentDetailPage({
         </div>
 
         {/* Timeline */}
-        <div className="bg-gray-800 border border-gray-700 rounded-lg shadow-lg p-8">
-          <h2 className="text-xl font-bold text-white mb-6">Timeline</h2>
+        <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg p-8">
+          <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-6">Timeline</h2>
           
           {/* Add Note/Action Forms */}
           <div className="mb-8 space-y-4">
@@ -519,13 +545,13 @@ export default function IncidentDetailPage({
                 value={noteInput}
                 onChange={(e) => setNoteInput(e.target.value)}
                 placeholder="Add a note..."
-                className="flex-1 px-4 py-2 bg-gray-700 border border-gray-600 text-white placeholder-gray-400 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="flex-1 px-4 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 onKeyDown={(e) => e.key === "Enter" && handleAddNote()}
               />
               <button
                 onClick={handleAddNote}
                 disabled={addingNote || !noteInput.trim()}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-600 disabled:text-gray-400 flex items-center gap-2 transition-colors"
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400 dark:disabled:bg-gray-600 disabled:text-gray-200 dark:disabled:text-gray-400 flex items-center gap-2 transition-colors"
               >
                 {addingNote ? (
                   <FontAwesomeIcon icon={faSpinner} className="animate-spin" />
@@ -541,13 +567,13 @@ export default function IncidentDetailPage({
                 value={actionInput}
                 onChange={(e) => setActionInput(e.target.value)}
                 placeholder="Log an action taken..."
-                className="flex-1 px-4 py-2 bg-gray-700 border border-gray-600 text-white placeholder-gray-400 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="flex-1 px-4 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 onKeyDown={(e) => e.key === "Enter" && handleAddAction()}
               />
               <button
                 onClick={handleAddAction}
                 disabled={addingAction || !actionInput.trim()}
-                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:bg-gray-600 disabled:text-gray-400 flex items-center gap-2 transition-colors"
+                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:bg-gray-400 dark:disabled:bg-gray-600 disabled:text-gray-200 dark:disabled:text-gray-400 flex items-center gap-2 transition-colors"
               >
                 {addingAction ? (
                   <FontAwesomeIcon icon={faSpinner} className="animate-spin" />
@@ -560,19 +586,19 @@ export default function IncidentDetailPage({
           </div>
 
           <div className="space-y-4">
-            {incident.timeline.length === 0 ? (
-              <p className="text-gray-400">No timeline events yet</p>
+            {!incident.timeline || incident.timeline.length === 0 ? (
+              <p className="text-gray-500 dark:text-gray-400">No timeline events yet</p>
             ) : (
               incident.timeline.map((event) => (
-                <div key={event.id} className="flex gap-4 p-4 bg-gray-700 border border-gray-600 rounded-lg">
+                <div key={event.id} className="flex gap-4 p-4 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg">
                   <div className="flex flex-col items-center">
                     <div
                       className={`w-8 h-8 rounded-full flex items-center justify-center ${
                         event.type === "STATUS_CHANGE"
-                          ? "bg-blue-500/20 text-blue-400 border border-blue-500/30"
+                          ? "bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-500/20 dark:text-blue-400 dark:border-blue-500/30"
                           : event.type === "ACTION"
-                          ? "bg-green-500/20 text-green-400 border border-green-500/30"
-                          : "bg-yellow-500/20 text-yellow-400 border border-yellow-500/30"
+                          ? "bg-green-100 text-green-800 border-green-200 dark:bg-green-500/20 dark:text-green-400 dark:border-green-500/30"
+                          : "bg-yellow-100 text-yellow-800 border-yellow-200 dark:bg-yellow-500/20 dark:text-yellow-400 dark:border-yellow-500/30"
                       }`}
                     >
                       <FontAwesomeIcon
@@ -589,14 +615,14 @@ export default function IncidentDetailPage({
                   </div>
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-1">
-                      <span className="text-xs font-medium px-2 py-0.5 rounded bg-gray-600 text-gray-300 border border-gray-500">
+                      <span className="text-xs font-medium px-2 py-0.5 rounded bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-500">
                         {event.type.replace("_", " ")}
                       </span>
-                      <span className="text-sm text-gray-400">
+                      <span className="text-sm text-gray-500 dark:text-gray-400">
                         {event.createdBy.name} • {new Date(event.createdAt).toLocaleString()}
                       </span>
                     </div>
-                    <p className="text-white">
+                    <p className="text-gray-900 dark:text-white">
                       {event.type === "STATUS_CHANGE"
                         ? `Status changed from ${event.data?.from || "New"} to ${event.data?.to}`
                         : event.message || "No message"}

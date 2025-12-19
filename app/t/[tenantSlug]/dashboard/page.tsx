@@ -120,31 +120,31 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="p-6 space-y-6">
-      <h1 className="text-2xl font-bold text-white">Dashboard</h1>
+    <div className="space-y-6">
+      <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Dashboard</h1>
 
-      {/* Incident Stats */}
+      {/* Top Stats */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-gray-800 rounded-lg p-4 border border-gray-700">
+        <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-blue-200 dark:border-blue-700/50">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-gray-400 text-sm">Total Incidents</p>
-              <p className="text-3xl font-bold text-white">
+              <p className="text-gray-500 dark:text-gray-400 text-sm">Total Incidents</p>
+              <p className="text-3xl font-bold text-blue-600 dark:text-blue-400">
                 {stats?.incidents.total || 0}
               </p>
             </div>
             <FontAwesomeIcon
               icon={faExclamationTriangle}
-              className="text-gray-500 text-2xl"
+              className="text-blue-500 text-2xl"
             />
           </div>
         </div>
 
-        <div className="bg-gray-800 rounded-lg p-4 border border-red-700/50">
+        <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-red-200 dark:border-red-700/50">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-gray-400 text-sm">Open</p>
-              <p className="text-3xl font-bold text-red-400">
+              <p className="text-gray-500 dark:text-gray-400 text-sm">Open Incidents</p>
+              <p className="text-3xl font-bold text-red-600 dark:text-red-400">
                 {stats?.incidents.open || 0}
               </p>
             </div>
@@ -152,11 +152,11 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        <div className="bg-gray-800 rounded-lg p-4 border border-yellow-700/50">
+        <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-yellow-200 dark:border-yellow-700/50">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-gray-400 text-sm">Mitigated</p>
-              <p className="text-3xl font-bold text-yellow-400">
+              <p className="text-gray-500 dark:text-gray-400 text-sm">Mitigated</p>
+              <p className="text-3xl font-bold text-yellow-600 dark:text-yellow-400">
                 {stats?.incidents.mitigated || 0}
               </p>
             </div>
@@ -167,11 +167,11 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        <div className="bg-gray-800 rounded-lg p-4 border border-green-700/50">
+        <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-green-200 dark:border-green-700/50">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-gray-400 text-sm">Resolved</p>
-              <p className="text-3xl font-bold text-green-400">
+              <p className="text-gray-500 dark:text-gray-400 text-sm">Resolved</p>
+              <p className="text-3xl font-bold text-green-600 dark:text-green-400">
                 {stats?.incidents.resolved || 0}
               </p>
             </div>
@@ -186,8 +186,8 @@ export default function DashboardPage() {
       {/* Severity Breakdown & Feature Flags */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Severity Breakdown */}
-        <div className="bg-gray-800 rounded-lg p-4 border border-gray-700">
-          <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+        <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
             <FontAwesomeIcon icon={faChartLine} className="text-blue-400" />
             Incidents by Severity
           </h2>
@@ -209,12 +209,12 @@ export default function DashboardPage() {
               return (
                 <div key={sev}>
                   <div className="flex justify-between text-sm mb-1">
-                    <span className="text-gray-300">{sev}</span>
-                    <span className="text-gray-400">
+                    <span className="text-gray-700 dark:text-gray-300">{sev}</span>
+                    <span className="text-gray-500 dark:text-gray-400">
                       {count} ({percentage}%)
                     </span>
                   </div>
-                  <div className="h-2 bg-gray-700 rounded-full overflow-hidden">
+                  <div className="h-2 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
                     <div
                       className={`h-full ${colors[sev]} transition-all`}
                       style={{ width: `${percentage}%` }}
@@ -227,37 +227,37 @@ export default function DashboardPage() {
         </div>
 
         {/* Feature Flags */}
-        <div className="bg-gray-800 rounded-lg p-4 border border-gray-700">
-          <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+        <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
             <FontAwesomeIcon icon={faFlag} className="text-purple-400" />
             Feature Flags
           </h2>
           <div className="grid grid-cols-3 gap-4">
             <div className="text-center">
-              <p className="text-3xl font-bold text-white">
+              <p className="text-3xl font-bold text-gray-900 dark:text-white">
                 {stats?.featureFlags.total || 0}
               </p>
-              <p className="text-gray-400 text-sm">Total</p>
+              <p className="text-gray-500 dark:text-gray-400 text-sm">Total</p>
             </div>
             <div className="text-center">
-              <p className="text-3xl font-bold text-green-400">
+              <p className="text-3xl font-bold text-green-600 dark:text-green-400">
                 {stats?.featureFlags.enabled || 0}
               </p>
-              <p className="text-gray-400 text-sm">Enabled</p>
+              <p className="text-gray-500 dark:text-gray-400 text-sm">Enabled</p>
             </div>
             <div className="text-center">
               <p className="text-3xl font-bold text-gray-500">
                 {stats?.featureFlags.disabled || 0}
               </p>
-              <p className="text-gray-400 text-sm">Disabled</p>
+              <p className="text-gray-500 dark:text-gray-400 text-sm">Disabled</p>
             </div>
           </div>
         </div>
       </div>
 
       {/* Recent Activity */}
-      <div className="bg-gray-800 rounded-lg p-4 border border-gray-700">
-        <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+      <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+        <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
           <FontAwesomeIcon icon={faUsers} className="text-cyan-400" />
           Recent Activity
         </h2>
@@ -266,24 +266,24 @@ export default function DashboardPage() {
             {stats.recentActivity.map((activity) => (
               <div
                 key={activity.id}
-                className="flex items-center justify-between py-2 border-b border-gray-700 last:border-0"
+                className="flex items-center justify-between py-2 border-b border-gray-200 dark:border-gray-700 last:border-0"
               >
                 <div>
-                  <p className="text-gray-300">
-                    <span className="font-medium text-white">
+                  <p className="text-gray-700 dark:text-gray-300">
+                    <span className="font-medium text-gray-900 dark:text-white">
                       {activity.type}
                     </span>{" "}
                     on {activity.message}
                   </p>
                 </div>
-                <span className="text-gray-500 text-sm">
+                <span className="text-gray-500 dark:text-gray-400 text-sm">
                   {new Date(activity.createdAt).toLocaleString()}
                 </span>
               </div>
             ))}
           </div>
         ) : (
-          <p className="text-gray-500">No recent activity</p>
+          <p className="text-gray-500 dark:text-gray-400">No recent activity</p>
         )}
       </div>
     </div>

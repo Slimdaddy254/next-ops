@@ -1,5 +1,4 @@
 import { redirect } from "next/navigation";
-import { headers } from "next/headers";
 import Link from "next/link";
 import { auth } from "@/auth";
 import UserMenu from "@/app/components/UserMenu";
@@ -78,20 +77,16 @@ export default async function TenantLayout({ children, params }: TenantLayoutPro
     }));
   }
 
-  // Get current path for sidebar highlighting
-  const headersList = await headers();
-  const pathname = headersList.get("x-pathname") || `/t/${tenantSlug}/incidents`;
-
   return (
-    <div className="min-h-screen bg-gray-900">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       {/* Tenant Context Setter - updates session when tenant changes */}
       <TenantContextSetter tenantSlug={tenantSlug} />
       
       {/* Top Navigation */}
-      <header className="bg-gray-800 border-b border-gray-700 sticky top-0 z-40">
+      <header className="bg-white dark:bg-gray-800 border-b border-gray-300 dark:border-gray-700 sticky top-0 z-40">
         <div className="flex items-center justify-between px-4 py-3">
           <div className="flex items-center gap-4">
-            <Link href={`/t/${tenantSlug}/incidents`} className="text-xl font-bold text-white">
+            <Link href={`/t/${tenantSlug}/incidents`} className="text-xl font-bold text-gray-900 dark:text-white">
               Next Ops
             </Link>
           </div>
@@ -105,7 +100,7 @@ export default async function TenantLayout({ children, params }: TenantLayoutPro
 
       <div className="flex">
         {/* Sidebar */}
-        <Sidebar tenantSlug={tenantSlug} currentPath={pathname} />
+        <Sidebar tenantSlug={tenantSlug} />
 
         {/* Main Content */}
         <main className="flex-1 p-6">

@@ -3,6 +3,7 @@
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useToast } from "@/app/components/ToastProvider";
 
 interface FeatureFlag {
   id: string;
@@ -33,10 +34,10 @@ export default function FeatureFlagDetailPage() {
   const params = useParams();
   const tenantSlug = params.tenantSlug as string;
   const flagId = params.id as string;
+  const toast = useToast();
 
   const [flag, setFlag] = useState<FeatureFlag | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
   // Form state
@@ -77,10 +78,10 @@ export default function FeatureFlagDetailPage() {
       setKey(data.key);
       setDescription(data.description || "");
       setEnabled(data.enabled);
-      setRolloutPercentage(data.rolloutPercentage);
+      setRolloutPercentage(data.rolloutPercentage ?? 0);
       setRules(data.rules || []);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load flag");
+      toast.error(err instanceof Error ? err.message : "Failed to load flag");
     } finally {
       setLoading(false);
     }
@@ -101,12 +102,15 @@ export default function FeatureFlagDetailPage() {
         }),
       });
 
-      if (!response.ok) throw new Error("Failed to update feature flag");
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to update feature flag");
+      }
       const updated = await response.json();
       setFlag(updated);
-      alert("Feature flag updated successfully");
+      toast.success("Feature flag updated successfully");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to save");
+      toast.error(err instanceof Error ? err.message : "Failed to save");
     } finally {
       setSaving(false);
     }
@@ -154,8 +158,9 @@ export default function FeatureFlagDetailPage() {
 
       if (!response.ok) throw new Error("Failed to delete rule");
       setRules(rules.filter((r) => r.id !== ruleId));
+      toast.success("Rule deleted successfully");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to delete rule");
+      toast.error(err instanceof Error ? err.message : "Failed to delete rule");
     }
   };
 
@@ -173,7 +178,7 @@ export default function FeatureFlagDetailPage() {
 
   const handleEvaluate = async () => {
     if (!evalUserId.trim()) {
-      alert("Please enter a User ID");
+      toast.error("Please enter a User ID");
       return;
     }
 
@@ -195,7 +200,7 @@ export default function FeatureFlagDetailPage() {
       const result = await response.json();
       setEvalResult(result);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to evaluate");
+      toast.error(err instanceof Error ? err.message : "Failed to evaluate");
     } finally {
       setEvaluating(false);
     }
@@ -203,16 +208,12 @@ export default function FeatureFlagDetailPage() {
 
   if (loading) {
     return (
-      <div className="text-center py-8 text-gray-400">Loading feature flag...</div>
+      <div className="text-center py-8 text-gray-500 dark:text-gray-400">Loading feature flag...</div>
     );
   }
 
-  if (error && !flag) {
-    return <div className="text-center py-8 text-red-400">Error: {error}</div>;
-  }
-
   if (!flag) {
-    return <div className="text-center py-8 text-gray-400">Feature flag not found</div>;
+    return <div className="text-center py-8 text-gray-500 dark:text-gray-400">Feature flag not found</div>;
   }
 
   return (
@@ -222,58 +223,58 @@ export default function FeatureFlagDetailPage() {
         <div className="mb-6">
           <Link
             href={`/t/${tenantSlug}/feature-flags`}
-            className="text-blue-400 hover:text-blue-300 mb-4 inline-block"
+            className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 mb-4 inline-block"
           >
             ← Back to Feature Flags
           </Link>
-          <h1 className="text-3xl font-bold text-white">Edit Feature Flag</h1>
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Edit Feature Flag</h1>
         </div>
 
         {error && (
-          <div className="mb-6 p-4 bg-red-500/20 border border-red-500/30 text-red-400 rounded-lg">
+          <div className="mb-6 p-4 bg-red-100 border border-red-200 text-red-800 dark:bg-red-500/20 dark:border-red-500/30 dark:text-red-400 rounded-lg">
             {error}
           </div>
         )}
 
         {/* Main Settings */}
-        <div className="bg-gray-800 border border-gray-700 rounded-lg shadow-lg p-8 mb-6">
-          <h2 className="text-xl font-semibold text-white mb-6">Basic Settings</h2>
+        <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg p-8 mb-6">
+          <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-6">Basic Settings</h2>
 
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 Name
               </label>
               <input
                 type="text"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-4 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                 placeholder="Feature name"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 Key
               </label>
               <input
                 type="text"
                 value={key}
                 onChange={(e) => setKey(e.target.value)}
-                className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono"
+                className="w-full px-4 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono"
                 placeholder="feature_key"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 Description
               </label>
               <textarea
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-4 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                 rows={3}
                 placeholder="Describe this feature flag..."
               />
@@ -285,14 +286,14 @@ export default function FeatureFlagDetailPage() {
                   type="checkbox"
                   checked={enabled}
                   onChange={(e) => setEnabled(e.target.checked)}
-                  className="w-5 h-5 rounded bg-gray-700 border-gray-600 text-blue-500 focus:ring-2 focus:ring-blue-500"
+                  className="w-5 h-5 rounded bg-gray-50 dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-blue-600 dark:text-blue-500 focus:ring-2 focus:ring-blue-500"
                 />
-                <span className="text-gray-300">Enabled</span>
+                <span className="text-gray-700 dark:text-gray-300">Enabled</span>
               </label>
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 Rollout Percentage: {rolloutPercentage}%
               </label>
               <input
@@ -303,7 +304,7 @@ export default function FeatureFlagDetailPage() {
                 onChange={(e) => setRolloutPercentage(parseInt(e.target.value))}
                 className="w-full"
               />
-              <div className="flex justify-between text-xs text-gray-500 mt-1">
+              <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400 mt-1">
                 <span>0%</span>
                 <span>50%</span>
                 <span>100%</span>
@@ -315,13 +316,13 @@ export default function FeatureFlagDetailPage() {
             <button
               onClick={handleSave}
               disabled={saving}
-              className="px-6 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 text-white rounded-lg transition-colors"
+              className="px-6 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 dark:disabled:bg-gray-600 text-white rounded-lg transition-colors"
             >
               {saving ? "Saving..." : "Save Changes"}
             </button>
             <button
               onClick={fetchFlag}
-              className="px-6 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors"
+              className="px-6 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-white rounded-lg transition-colors"
             >
               Reset
             </button>
@@ -329,9 +330,9 @@ export default function FeatureFlagDetailPage() {
         </div>
 
         {/* Targeting Rules */}
-        <div className="bg-gray-800 border border-gray-700 rounded-lg shadow-lg p-8">
+        <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg p-8">
           <div className="flex justify-between items-center mb-6">
-            <h2 className="text-xl font-semibold text-white">Targeting Rules</h2>
+            <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Targeting Rules</h2>
             <button
               onClick={() => setShowAddRule(!showAddRule)}
               className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
@@ -341,15 +342,15 @@ export default function FeatureFlagDetailPage() {
           </div>
 
           {showAddRule && (
-            <div className="mb-6 p-4 bg-gray-700/50 border border-gray-600 rounded-lg">
-              <h3 className="text-sm font-medium text-gray-300 mb-4">New Rule</h3>
+            <div className="mb-6 p-4 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-lg">
+              <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-4">New Rule</h3>
               
               <div className="mb-4">
-                <label className="block text-xs text-gray-400 mb-2">Rule Type</label>
+                <label className="block text-xs text-gray-500 dark:text-gray-400 mb-2">Rule Type</label>
                 <select
                   value={newRuleType}
                   onChange={(e) => setNewRuleType(e.target.value as "ALLOWLIST" | "PERCENT_ROLLOUT")}
-                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white"
+                  className="w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded text-gray-900 dark:text-white"
                 >
                   <option value="ALLOWLIST">Allow Specific Users</option>
                   <option value="PERCENT_ROLLOUT">Percentage Rollout</option>
@@ -358,20 +359,20 @@ export default function FeatureFlagDetailPage() {
 
               {newRuleType === "ALLOWLIST" ? (
                 <div className="mb-4">
-                  <label className="block text-xs text-gray-400 mb-1">
+                  <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">
                     User IDs (comma-separated)
                   </label>
                   <input
                     type="text"
                     value={newRuleUsers}
                     onChange={(e) => setNewRuleUsers(e.target.value)}
-                    className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white text-sm"
+                    className="w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded text-gray-900 dark:text-white text-sm"
                     placeholder="user1, user2, user3"
                   />
                 </div>
               ) : (
                 <div className="mb-4">
-                  <label className="block text-xs text-gray-400 mb-1">
+                  <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">
                     Rollout Percentage: {newRulePercent}%
                   </label>
                   <input
@@ -382,7 +383,7 @@ export default function FeatureFlagDetailPage() {
                     onChange={(e) => setNewRulePercent(parseInt(e.target.value))}
                     className="w-full"
                   />
-                  <div className="flex justify-between text-xs text-gray-500 mt-1">
+                  <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400 mt-1">
                     <span>0%</span>
                     <span>50%</span>
                     <span>100%</span>
@@ -399,8 +400,8 @@ export default function FeatureFlagDetailPage() {
             </div>
           )}
 
-          {rules.length === 0 ? (
-            <div className="text-center py-8 text-gray-500">
+          {!rules || rules.length === 0 ? (
+            <div className="text-center py-8 text-gray-500 dark:text-gray-400">
               No targeting rules. Add rules to control who sees this feature.
             </div>
           ) : (
@@ -408,17 +409,17 @@ export default function FeatureFlagDetailPage() {
               {rules.map((rule) => (
                 <div
                   key={rule.id}
-                  className="flex items-center justify-between p-4 bg-gray-700 border border-gray-600 rounded-lg"
+                  className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg"
                 >
                   <div className="flex items-center gap-4 text-sm">
-                    <span className="px-2 py-1 bg-blue-500/20 text-blue-400 border border-blue-500/30 rounded text-xs font-medium">
+                    <span className="px-2 py-1 bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-500/20 dark:text-blue-400 dark:border-blue-500/30 rounded text-xs font-medium border">
                       {rule.type}
                     </span>
-                    <span className="text-white">{formatRuleDisplay(rule)}</span>
+                    <span className="text-gray-900 dark:text-white">{formatRuleDisplay(rule)}</span>
                   </div>
                   <button
                     onClick={() => handleDeleteRule(rule.id)}
-                    className="px-3 py-1 bg-red-600/20 hover:bg-red-600/30 text-red-400 border border-red-500/30 rounded transition-colors"
+                    className="px-3 py-1 bg-red-100 hover:bg-red-200 text-red-800 border-red-200 dark:bg-red-600/20 dark:hover:bg-red-600/30 dark:text-red-400 dark:border-red-500/30 border rounded transition-colors"
                   >
                     Delete
                   </button>
@@ -429,12 +430,12 @@ export default function FeatureFlagDetailPage() {
         </div>
 
         {/* Evaluation Tool */}
-        <div className="bg-gray-800 border border-gray-700 rounded-lg shadow-lg p-8 mb-6">
+        <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg p-8 mb-6">
           <div className="flex justify-between items-center mb-6">
-            <h2 className="text-xl font-semibold text-white">Evaluation Tool</h2>
+            <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Evaluation Tool</h2>
             <button
               onClick={() => setShowEvaluationTool(!showEvaluationTool)}
-              className="text-sm text-blue-400 hover:text-blue-300"
+              className="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300"
             >
               {showEvaluationTool ? "Hide" : "Show"} Tool
             </button>
@@ -442,27 +443,27 @@ export default function FeatureFlagDetailPage() {
 
           {showEvaluationTool && (
             <>
-              <p className="text-sm text-gray-400 mb-4">
+              <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
                 Test how this feature flag evaluates for different users and contexts.
               </p>
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
                 <div>
-                  <label className="block text-sm text-gray-400 mb-1">User ID *</label>
+                  <label className="block text-sm text-gray-500 dark:text-gray-400 mb-1">User ID *</label>
                   <input
                     type="text"
                     value={evalUserId}
                     onChange={(e) => setEvalUserId(e.target.value)}
-                    className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white"
+                    className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded text-gray-900 dark:text-white"
                     placeholder="user-123"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm text-gray-400 mb-1">Environment *</label>
+                  <label className="block text-sm text-gray-500 dark:text-gray-400 mb-1">Environment *</label>
                   <select
                     value={evalEnvironment}
                     onChange={(e) => setEvalEnvironment(e.target.value as "DEV" | "STAGING" | "PROD")}
-                    className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white"
+                    className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded text-gray-900 dark:text-white"
                   >
                     <option value="PROD">Production</option>
                     <option value="STAGING">Staging</option>
@@ -470,12 +471,12 @@ export default function FeatureFlagDetailPage() {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm text-gray-400 mb-1">Service (optional)</label>
+                  <label className="block text-sm text-gray-500 dark:text-gray-400 mb-1">Service (optional)</label>
                   <input
                     type="text"
                     value={evalService}
                     onChange={(e) => setEvalService(e.target.value)}
-                    className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white"
+                    className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded text-gray-900 dark:text-white"
                     placeholder="api-gateway"
                   />
                 </div>
@@ -484,7 +485,7 @@ export default function FeatureFlagDetailPage() {
               <button
                 onClick={handleEvaluate}
                 disabled={evaluating || !evalUserId.trim()}
-                className="w-full px-4 py-2 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-600 text-white rounded-lg transition-colors mb-4"
+                className="w-full px-4 py-2 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-400 dark:disabled:bg-gray-600 text-white rounded-lg transition-colors mb-4"
               >
                 {evaluating ? "Evaluating..." : "Evaluate Flag"}
               </button>
@@ -492,24 +493,24 @@ export default function FeatureFlagDetailPage() {
               {evalResult && (
                 <div className={`p-4 rounded-lg border ${
                   evalResult.enabled 
-                    ? "bg-green-500/10 border-green-500/30" 
-                    : "bg-red-500/10 border-red-500/30"
+                    ? "bg-green-100 border-green-200 dark:bg-green-500/10 dark:border-green-500/30" 
+                    : "bg-red-100 border-red-200 dark:bg-red-500/10 dark:border-red-500/30"
                 }`}>
                   <div className="flex items-center gap-3 mb-3">
                     <span className={`text-2xl font-bold ${
-                      evalResult.enabled ? "text-green-400" : "text-red-400"
+                      evalResult.enabled ? "text-green-700 dark:text-green-400" : "text-red-700 dark:text-red-400"
                     }`}>
                       {evalResult.enabled ? "✓ ENABLED" : "✗ DISABLED"}
                     </span>
                   </div>
                   <div className="mb-3">
-                    <span className="text-sm text-gray-400">Reason: </span>
-                    <span className="text-white">{evalResult.reason}</span>
+                    <span className="text-sm text-gray-500 dark:text-gray-400">Reason: </span>
+                    <span className="text-gray-900 dark:text-white">{evalResult.reason}</span>
                   </div>
                   {evalResult.trace && evalResult.trace.length > 0 && (
                     <div>
-                      <span className="text-sm text-gray-400">Evaluation Trace:</span>
-                      <ul className="mt-2 space-y-1 text-sm text-gray-300 font-mono">
+                      <span className="text-sm text-gray-500 dark:text-gray-400">Evaluation Trace:</span>
+                      <ul className="mt-2 space-y-1 text-sm text-gray-700 dark:text-gray-300 font-mono">
                         {evalResult.trace.map((step, i) => (
                           <li key={i} className="flex items-start gap-2">
                             <span className="text-gray-500">{i + 1}.</span>
@@ -526,7 +527,7 @@ export default function FeatureFlagDetailPage() {
         </div>
 
         {/* Metadata */}
-        <div className="mt-6 text-sm text-gray-500">
+        <div className="mt-6 text-sm text-gray-500 dark:text-gray-400">
           <p>Created: {new Date(flag.createdAt).toLocaleString()}</p>
           <p>Last Updated: {new Date(flag.updatedAt).toLocaleString()}</p>
         </div>
