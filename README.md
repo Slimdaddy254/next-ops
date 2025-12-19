@@ -2,6 +2,8 @@
 
 A multi-tenant incident management and feature flag platform built with Next.js 16, PostgreSQL, and Prisma.
 
+![Dashboard Screenshot](.github/dashboard.png)
+
 ## Table of Contents
 
 - [Quick Start](#quick-start)

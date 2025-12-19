@@ -1,6 +1,6 @@
 import { getIronSession } from "iron-session";
 import { cookies } from "next/headers";
-import { prisma } from "./prisma";
+import { auth } from "@/auth";
 
 export interface SessionUser {
   id: string;
@@ -10,6 +10,11 @@ export interface SessionUser {
 
 export interface Session {
   user?: SessionUser;
+  tenantId?: string;
+  tenantSlug?: string;
+}
+
+interface TenantSession {
   tenantId?: string;
   tenantSlug?: string;
 }
@@ -25,40 +30,39 @@ const SESSION_CONFIG = {
   },
 };
 
-// No cache in dev mode - always get fresh user from DB to avoid FK issues after reseeding
-
 export async function getSession(): Promise<Session> {
+  // Get user from NextAuth session
+  const nextAuthSession = await auth();
+  
+  // Get tenant context from iron-session
   const cookieStore = await cookies();
-  const session = await getIronSession<Session>(cookieStore, SESSION_CONFIG);
+  const tenantSession = await getIronSession<TenantSession>(cookieStore, SESSION_CONFIG);
   
-  // DEV MODE: If no user, return a real user from the database for testing
-  if (process.env.NODE_ENV === "development" && !session.user) {
-    const user = await prisma.user.findFirst({
-      orderBy: { createdAt: "asc" },
-    });
-    if (user) {
-      return {
-        user: {
-          id: user.id,
-          email: user.email,
-          name: user.name + " (Dev)",
-        },
-      };
-    }
-  }
-  
-  return session;
+  // Combine both sessions
+  return {
+    user: nextAuthSession?.user ? {
+      id: nextAuthSession.user.id!,
+      email: nextAuthSession.user.email!,
+      name: nextAuthSession.user.name!,
+    } : undefined,
+    tenantId: tenantSession.tenantId,
+    tenantSlug: tenantSession.tenantSlug,
+  };
 }
 
-export async function setSession(data: Session) {
+export async function setSession(data: Partial<Session>) {
   const cookieStore = await cookies();
-  const session = await getIronSession<Session>(cookieStore, SESSION_CONFIG);
-  Object.assign(session, data);
+  const session = await getIronSession<TenantSession>(cookieStore, SESSION_CONFIG);
+  
+  // Only store tenant context in iron-session (user is managed by NextAuth)
+  if (data.tenantId !== undefined) session.tenantId = data.tenantId;
+  if (data.tenantSlug !== undefined) session.tenantSlug = data.tenantSlug;
+  
   await session.save();
 }
 
 export async function clearSession() {
   const cookieStore = await cookies();
-  const session = await getIronSession<Session>(cookieStore, SESSION_CONFIG);
+  const session = await getIronSession<TenantSession>(cookieStore, SESSION_CONFIG);
   session.destroy();
 }

@@ -115,6 +115,18 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const data = createIncidentSchema.parse(body);
 
+    // Verify user exists in database (catches stale session after DB reseed)
+    const userExists = await prisma.user.findUnique({
+      where: { id: session.user.id },
+    });
+    
+    if (!userExists) {
+      return NextResponse.json(
+        { error: "User not found. Please log out and log back in." },
+        { status: 401 }
+      );
+    }
+
     // Create incident
     const incident = await prisma.incident.create({
       data: {
@@ -165,8 +177,14 @@ export async function POST(request: NextRequest) {
     }
 
     console.error("Error creating incident:", error);
+    
+    // Return detailed error in development, generic in production
+    const errorMessage = process.env.NODE_ENV === "development" && error instanceof Error
+      ? error.message
+      : "Failed to create incident";
+      
     return NextResponse.json(
-      { error: "Failed to create incident" },
+      { error: errorMessage },
       { status: 500 }
     );
   }
