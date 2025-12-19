@@ -83,6 +83,8 @@ export async function PATCH(
       );
     }
 
+    const userId = session.user.id;
+
     const body = await request.json();
     const { status: newStatus, message } = updateStatusSchema.parse(body);
 
@@ -130,7 +132,7 @@ export async function PATCH(
           tenantId: tenantContext.tenantId,
           type: "STATUS_CHANGE",
           data: { from: incident.status, to: newStatus },
-          createdById: session.user.id,
+          createdById: userId,
         },
       });
 
@@ -142,7 +144,7 @@ export async function PATCH(
             tenantId: tenantContext.tenantId,
             type: "NOTE",
             message,
-            createdById: session.user.id,
+            createdById: userId,
           },
         });
       }
@@ -151,7 +153,7 @@ export async function PATCH(
       await tx.auditLog.create({
         data: {
           tenantId: tenantContext.tenantId,
-          actorId: session.user.id,
+          actorId: userId,
           action: "UPDATE",
           entityType: "Incident",
           entityId: id,
