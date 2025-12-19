@@ -189,14 +189,15 @@ export async function GET(request: NextRequest) {
 }
 ```
 
-### Why Not Prisma Middleware?
+### Prisma Middleware Implementation
 
-We chose **explicit tenant filtering** over automatic Prisma middleware because:
+We use **automatic Prisma middleware** for tenant enforcement at the ORM layer:
 
-1. **Visibility**: Engineers see the tenant scope in every query
-2. **Testability**: No magic—easy to test tenant isolation
-3. **Flexibility**: Some admin operations may need cross-tenant access
-4. **Debugging**: Clear stack traces when tenant context is missing
+1. **Automatic Filtering**: All queries automatically scoped to current tenant
+2. **Security**: Impossible to bypass—enforced at data layer
+3. **TENANT_SCOPED_MODELS**: Array defines which models get auto-filtering
+4. **Auto-Injection**: tenantId added to CREATE, WHERE clauses in READ/UPDATE/DELETE
+5. **Fail-Safe**: Operations fail if tenant context is missing
 
 ---
 
